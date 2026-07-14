@@ -4,7 +4,7 @@ import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { User } from '../types'
 import { Button, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
-import { hasSuperadminAccess } from '../utils/roles'
+import { hasAdminAccess } from '../utils/roles'
 
 export default function Innsjekk() {
   const { selectedEvent, refresh } = useEvents()
@@ -18,7 +18,7 @@ export default function Innsjekk() {
   const [search, setSearch] = useState('')
   const [checkingInId, setCheckingInId] = useState<number | null>(null)
 
-  const isSuperadmin = hasSuperadminAccess(selectedEvent?.viewer_role)
+  const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
 
   useEffect(() => {
     api.users().then(setUsers).catch(() => {})
@@ -83,7 +83,7 @@ export default function Innsjekk() {
       <ErrorText>{error}</ErrorText>
       {message && <p className="mb-4 text-sm text-green-800">{message}</p>}
 
-      {isSuperadmin && (
+      {isAdmin && (
         <Card className="mb-6">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-600">Innsjekk-modus</h2>
           <p className="mb-3 text-sm text-ink-600">

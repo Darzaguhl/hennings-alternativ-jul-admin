@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import { Button, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
-import { hasSuperadminAccess } from '../utils/roles'
+import { hasAdminAccess } from '../utils/roles'
 
 export default function Arrangement() {
   const { selectedEvent, refresh, selectEvent } = useEvents()
@@ -34,10 +34,10 @@ export default function Arrangement() {
     )
   }
 
-  if (!hasSuperadminAccess(selectedEvent.viewer_role)) {
+  if (!hasAdminAccess(selectedEvent.viewer_role)) {
     return (
       <Card>
-        <p className="text-ink-600">Bare superadmin kan administrere arrangementet.</p>
+        <p className="text-ink-600">Bare admin kan administrere arrangementet.</p>
       </Card>
     )
   }

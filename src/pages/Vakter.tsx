@@ -3,7 +3,7 @@ import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { Criticality, Shift, User } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
-import { hasSuperadminAccess } from '../utils/roles'
+import { hasAdminAccess } from '../utils/roles'
 
 interface ShiftFormState {
   title: string
@@ -48,13 +48,13 @@ export default function Vakter() {
   const [form, setForm] = useState<ShiftFormState>(emptyForm)
   const [saving, setSaving] = useState(false)
 
-  const isSuperadmin = hasSuperadminAccess(selectedEvent?.viewer_role)
+  const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
 
   const load = () => {
     if (!selectedEvent) return
     setLoading(true)
     setError('')
-    Promise.all([api.shifts(selectedEvent.id), isSuperadmin ? api.users() : Promise.resolve([])])
+    Promise.all([api.shifts(selectedEvent.id), isAdmin ? api.users() : Promise.resolve([])])
       .then(([s, u]) => {
         setShifts([...s].sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time)))
         setUsers(u)
@@ -63,7 +63,7 @@ export default function Vakter() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(load, [selectedEvent, isSuperadmin])
+  useEffect(load, [selectedEvent, isAdmin])
 
   const openCreate = () => {
     setForm(emptyForm)
@@ -89,7 +89,7 @@ export default function Vakter() {
       capacity: form.capacity === '' ? null : Number(form.capacity),
       min_capacity: form.min_capacity === '' ? null : Number(form.min_capacity),
       criticality: form.criticality,
-      ...(isSuperadmin ? { leader_ids: form.leader_ids } : {}),
+      ...(isAdmin ? { leader_ids: form.leader_ids } : {}),
     }
     try {
       if (editingId === 'new') {
@@ -123,7 +123,7 @@ export default function Vakter() {
       <PageHeader
         title="Vakter"
         subtitle={`${shifts.length} vakter i ${selectedEvent.title}`}
-        action={isSuperadmin ? <Button onClick={openCreate}>+ Ny vakt</Button> : undefined}
+        action={isAdmin ? <Button onClick={openCreate}>+ Ny vakt</Button> : undefined}
       />
 
       <ErrorText>{error}</ErrorText>
@@ -149,12 +149,12 @@ export default function Vakter() {
                     {shift.leaders.length > 0 && <> · Ledere: {shift.leaders.map((l) => l.email).join(', ')}</>}
                   </p>
                 </div>
-                {(isSuperadmin || shift.is_led_by_viewer) && (
+                {(isAdmin || shift.is_led_by_viewer) && (
                   <div className="flex flex-shrink-0 gap-2">
                     <Button variant="secondary" onClick={() => openEdit(shift)}>
                       Rediger
                     </Button>
-                    {isSuperadmin && (
+                    {isAdmin && (
                       <Button variant="danger" onClick={() => handleDelete(shift)}>
                         Slett
                       </Button>
@@ -231,7 +231,7 @@ export default function Vakter() {
                   </Select>
                 </div>
               </div>
-              {isSuperadmin && (
+              {isAdmin && (
                 <div>
                   <Label>Ledere for denne vakten</Label>
                   <select

@@ -128,6 +128,12 @@ export const api = {
 
   me: () => request<User>('/api/users/me/'),
   users: () => request<User[]>('/api/users/'),
+  userNotes: (userId: number) => request<{ id: number; email: string; admin_notes: string }>(`/api/users/${userId}/notes/`),
+  updateUserNotes: (userId: number, adminNotes: string) =>
+    request<{ id: number; email: string; admin_notes: string }>(`/api/users/${userId}/notes/`, {
+      method: 'PATCH',
+      body: { admin_notes: adminNotes },
+    }),
 
   events: () => request<Event[]>('/api/events/'),
   event: (id: number) => request<Event>(`/api/events/${id}/`),

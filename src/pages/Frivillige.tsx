@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { Shift, User } from '../types'
-import { Badge, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
-import { hasSuperadminAccess } from '../utils/roles'
+import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
+import { hasAdminAccess } from '../utils/roles'
 
 export default function Frivillige() {
   const { selectedEvent } = useEvents()
@@ -62,7 +62,8 @@ export default function Frivillige() {
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
   const role = selectedEvent.viewer_role
-  const canView = hasSuperadminAccess(role) || role === 'checkin_staff' || role === 'shift_leader'
+  const canView = hasAdminAccess(role) || role === 'checkin_staff' || role === 'shift_leader'
+  const canSeeNotes = hasAdminAccess(role)
   if (!canView) {
     return (
       <Card>
@@ -115,39 +116,107 @@ export default function Frivillige() {
         <p className="text-ink-600">Laster …</p>
       ) : (
         <div className="flex flex-col gap-2">
-          {filtered.map((u) => {
-            const userShifts = signupsByUser.get(u.id) ?? []
-            return (
-              <Card key={u.id} className="!p-4">
-                <p className="font-medium text-ink-900">{u.email}</p>
-                {u.skills.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {u.skills.map((s) => (
-                      <Badge key={s.id} tone="warning">
-                        {s.name}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-2">
-                  {userShifts.length === 0 ? (
-                    <p className="text-sm text-ink-400">Ikke meldt på noen vakt ennå.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {userShifts.map((s) => (
-                        <Badge key={s.id} tone="neutral">
-                          {s.title} ({s.date})
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )
-          })}
+          {filtered.map((u) => (
+            <VolunteerCard key={u.id} user={u} shifts={signupsByUser.get(u.id) ?? []} canSeeNotes={canSeeNotes} />
+          ))}
           {filtered.length === 0 && <p className="text-ink-600">Ingen frivillige matcher filteret.</p>}
         </div>
       )}
     </div>
+  )
+}
+
+function VolunteerCard({ user, shifts, canSeeNotes }: { user: User; shifts: Shift[]; canSeeNotes: boolean }) {
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [notesLoaded, setNotesLoaded] = useState(false)
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const openNotes = () => {
+    setNotesOpen(true)
+    if (notesLoaded) return
+    setNotesLoading(true)
+    api
+      .userNotes(user.id)
+      .then((data) => {
+        setNotes(data.admin_notes)
+        setNotesLoaded(true)
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Kunne ikke laste notater.'))
+      .finally(() => setNotesLoading(false))
+  }
+
+  const saveNotes = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await api.updateUserNotes(user.id, notes)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Kunne ikke lagre notater.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="!p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <p className="font-medium text-ink-900">{user.email}</p>
+          {user.skills.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {user.skills.map((s) => (
+                <Badge key={s.id} tone="warning">
+                  {s.name}
+                </Badge>
+              ))}
+            </div>
+          )}
+          <div className="mt-2">
+            {shifts.length === 0 ? (
+              <p className="text-sm text-ink-400">Ikke meldt på noen vakt ennå.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {shifts.map((s) => (
+                  <Badge key={s.id} tone="neutral">
+                    {s.title} ({s.date})
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        {canSeeNotes && (
+          <Button variant="secondary" onClick={() => (notesOpen ? setNotesOpen(false) : openNotes())} className="!px-3 !py-1.5 !text-xs">
+            {notesOpen ? 'Skjul notater' : 'Notater'}
+          </Button>
+        )}
+      </div>
+
+      {notesOpen && (
+        <div className="mt-3 border-t border-cream-200 pt-3">
+          <Label>Admin-notater (kun synlig for admin/eier)</Label>
+          <ErrorText>{error}</ErrorText>
+          {notesLoading ? (
+            <p className="text-sm text-ink-400">Laster …</p>
+          ) : (
+            <>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder="F.eks. oppmøte og oppførsel fra tidligere år …"
+                className="w-full rounded-lg border border-cream-200 bg-white px-3 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none"
+              />
+              <Button onClick={saveNotes} disabled={saving} className="mt-2 !px-3 !py-1.5 !text-xs">
+                {saving ? 'Lagrer …' : 'Lagre notater'}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+    </Card>
   )
 }

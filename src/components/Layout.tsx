@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useEvents } from '../context/EventContext'
-import { hasSuperadminAccess } from '../utils/roles'
+import { hasAdminAccess } from '../utils/roles'
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   `block rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
@@ -13,10 +13,10 @@ export default function Layout() {
   const { events, selectedEvent, selectEvent, loading } = useEvents()
   const role = selectedEvent?.viewer_role
 
-  const canManageEvent = hasSuperadminAccess(role)
-  const canSeeRoller = hasSuperadminAccess(role)
-  const canSeePool = hasSuperadminAccess(role) || role === 'checkin_staff' || role === 'shift_leader'
-  const canSeeInnsjekk = hasSuperadminAccess(role) || role === 'checkin_staff'
+  const canManageEvent = hasAdminAccess(role)
+  const canSeeRoller = hasAdminAccess(role)
+  const canSeePool = hasAdminAccess(role) || role === 'checkin_staff' || role === 'shift_leader'
+  const canSeeInnsjekk = hasAdminAccess(role) || role === 'checkin_staff'
 
   return (
     <div className="flex min-h-screen">

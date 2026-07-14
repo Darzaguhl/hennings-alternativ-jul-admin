@@ -3,11 +3,11 @@ import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { Membership, MembershipRole, User } from '../types'
 import { Badge, Button, Card, ErrorText, Label, PageHeader, Select } from '../components/ui'
-import { hasSuperadminAccess, isOwner } from '../utils/roles'
+import { hasAdminAccess, isOwner } from '../utils/roles'
 
 const roleLabel: Record<MembershipRole, string> = {
   owner: 'Eier',
-  superadmin: 'Superadmin',
+  admin: 'Admin',
   checkin_staff: 'Innsjekk-ansvarlig',
 }
 
@@ -38,10 +38,10 @@ export default function Roller() {
 
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
-  if (!hasSuperadminAccess(selectedEvent.viewer_role)) {
+  if (!hasAdminAccess(selectedEvent.viewer_role)) {
     return (
       <Card>
-        <p className="text-ink-600">Bare superadmin kan administrere roller.</p>
+        <p className="text-ink-600">Bare admin kan administrere roller.</p>
       </Card>
     )
   }
@@ -76,7 +76,7 @@ export default function Roller() {
 
   return (
     <div>
-      <PageHeader title="Roller" subtitle={`Eier, superadmin og innsjekk-ansvarlige for ${selectedEvent.title}`} />
+      <PageHeader title="Roller" subtitle={`Eier, admin og innsjekk-ansvarlige for ${selectedEvent.title}`} />
 
       <ErrorText>{error}</ErrorText>
 
@@ -100,7 +100,7 @@ export default function Roller() {
               <option value="checkin_staff">Innsjekk-ansvarlig</option>
               {viewerIsOwner && (
                 <>
-                  <option value="superadmin">Superadmin</option>
+                  <option value="admin">Admin</option>
                   <option value="owner">Eier</option>
                 </>
               )}
@@ -113,7 +113,7 @@ export default function Roller() {
         <p className="mt-2 text-xs text-ink-400">
           {viewerIsOwner
             ? 'Ledere for enkeltvakter administreres på vakten selv, under Vakter.'
-            : 'Bare eier kan gi superadmin- eller eiertilgang. Ledere for enkeltvakter administreres på vakten selv, under Vakter.'}
+            : 'Bare eier kan gi admin- eller eiertilgang. Ledere for enkeltvakter administreres på vakten selv, under Vakter.'}
         </p>
       </Card>
 
@@ -128,7 +128,7 @@ export default function Roller() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-ink-900">{m.user.email}</span>
-                    <Badge tone={m.role === 'owner' ? 'warning' : m.role === 'superadmin' ? 'success' : 'neutral'}>
+                    <Badge tone={m.role === 'owner' ? 'warning' : m.role === 'admin' ? 'success' : 'neutral'}>
                       {roleLabel[m.role]}
                     </Badge>
                   </div>
