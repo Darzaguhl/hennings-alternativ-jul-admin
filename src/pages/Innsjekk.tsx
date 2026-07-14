@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
+import { Link } from 'react-router-dom'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { User } from '../types'
 import { Button, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
-import { hasAdminAccess } from '../utils/roles'
 
 export default function Innsjekk() {
-  const { selectedEvent, refresh } = useEvents()
+  const { selectedEvent } = useEvents()
   const [userCode, setUserCode] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -17,8 +17,6 @@ export default function Innsjekk() {
   const [users, setUsers] = useState<User[]>([])
   const [search, setSearch] = useState('')
   const [checkingInId, setCheckingInId] = useState<number | null>(null)
-
-  const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
 
   useEffect(() => {
     api.users().then(setUsers).catch(() => {})
@@ -66,16 +64,6 @@ export default function Innsjekk() {
     }
   }
 
-  const toggleMode = async () => {
-    const nextMode = selectedEvent.checkin_mode === 'personal_qr' ? 'event_qr' : 'personal_qr'
-    try {
-      await api.updateEvent(selectedEvent.id, { checkin_mode: nextMode })
-      refresh()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Kunne ikke endre innsjekk-modus.')
-    }
-  }
-
   return (
     <div>
       <PageHeader title="Innsjekk" subtitle={selectedEvent.title} />
@@ -83,19 +71,14 @@ export default function Innsjekk() {
       <ErrorText>{error}</ErrorText>
       {message && <p className="mb-4 text-sm text-green-800">{message}</p>}
 
-      {isAdmin && (
-        <Card className="mb-6">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-600">Innsjekk-modus</h2>
-          <p className="mb-3 text-sm text-ink-600">
-            {selectedEvent.checkin_mode === 'personal_qr'
-              ? 'Personlig QR — en ansvarlig skanner hver frivillig sin egen kode.'
-              : 'Delt QR — de frivillige skanner én delt kode selv.'}
-          </p>
-          <Button variant="secondary" onClick={toggleMode}>
-            Bytt til {selectedEvent.checkin_mode === 'personal_qr' ? 'delt kode' : 'personlig QR'}
-          </Button>
-        </Card>
-      )}
+      <p className="mb-6 text-sm text-ink-600">
+        {selectedEvent.checkin_mode === 'personal_qr'
+          ? 'Personlig QR — en ansvarlig skanner hver frivillig sin egen kode.'
+          : 'Delt QR — de frivillige skanner én delt kode selv.'}{' '}
+        <Link to="/arrangement" className="font-medium text-green-800 underline">
+          Endre innsjekk-modus i Arrangement
+        </Link>
+      </p>
 
       <Card className="mb-6 max-w-md">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-600">

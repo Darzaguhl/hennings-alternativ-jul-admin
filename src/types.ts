@@ -21,6 +21,7 @@ export interface Event {
   description: string
   date: string | null
   code: string
+  is_active: boolean
   checkin_mode: CheckinMode
   created_by: User
   viewer_role: ViewerRole

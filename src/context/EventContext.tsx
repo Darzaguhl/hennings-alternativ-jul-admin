@@ -32,7 +32,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
       setEvents(sorted)
       setSelectedId((current) => {
         if (current && sorted.some((e) => e.id === current)) return current
-        return sorted[0]?.id ?? null
+        return sorted.find((e) => e.is_active)?.id ?? sorted[0]?.id ?? null
       })
     } finally {
       setLoading(false)
