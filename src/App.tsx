@@ -9,6 +9,7 @@ import Roller from './pages/Roller'
 import Pool from './pages/Pool'
 import Innsjekk from './pages/Innsjekk'
 import Arrangement from './pages/Arrangement'
+import Frivillige from './pages/Frivillige'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="vakter" element={<Vakter />} />
+              <Route path="frivillige" element={<Frivillige />} />
               <Route path="pool" element={<Pool />} />
               <Route path="innsjekk" element={<Innsjekk />} />
               <Route path="roller" element={<Roller />} />

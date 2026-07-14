@@ -49,6 +49,11 @@ export default function Layout() {
             Vakter
           </NavLink>
           {canSeePool && (
+            <NavLink to="/frivillige" className={navItemClass}>
+              Frivillige
+            </NavLink>
+          )}
+          {canSeePool && (
             <NavLink to="/pool" className={navItemClass}>
               Pool &amp; tildeling
             </NavLink>

@@ -21,6 +21,7 @@ export default function Pool() {
   const load = () => {
     if (!selectedEvent) return
     setLoading(true)
+    setError('')
     api
       .pool(selectedEvent.id, date)
       .then((data) => {

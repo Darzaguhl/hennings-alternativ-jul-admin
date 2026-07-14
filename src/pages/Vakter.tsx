@@ -53,6 +53,7 @@ export default function Vakter() {
   const load = () => {
     if (!selectedEvent) return
     setLoading(true)
+    setError('')
     Promise.all([api.shifts(selectedEvent.id), isSuperadmin ? api.users() : Promise.resolve([])])
       .then(([s, u]) => {
         setShifts([...s].sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time)))

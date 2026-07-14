@@ -163,10 +163,15 @@ export const api = {
       method: 'POST',
       body: { user_id: userId, shift_id: shiftId },
     }),
-  checkin: (eventId: number, userCode: string) =>
+  checkinByCode: (eventId: number, userCode: string) =>
     request<{ status: string; message: string; user: User }>(`/api/events/${eventId}/checkin/`, {
       method: 'POST',
       body: { user_code: userCode },
+    }),
+  checkinByUserId: (eventId: number, userId: number) =>
+    request<{ status: string; message: string; user: User }>(`/api/events/${eventId}/checkin/`, {
+      method: 'POST',
+      body: { user_id: userId },
     }),
 
   metrics: (eventId: number, date?: string) =>

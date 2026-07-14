@@ -24,6 +24,7 @@ export default function Roller() {
   const load = () => {
     if (!selectedEvent) return
     setLoading(true)
+    setError('')
     Promise.all([api.memberships(selectedEvent.id), api.users()])
       .then(([m, u]) => {
         setMemberships(m)
