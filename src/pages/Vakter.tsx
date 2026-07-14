@@ -3,6 +3,7 @@ import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { Criticality, Shift, User } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
+import { hasSuperadminAccess } from '../utils/roles'
 
 interface ShiftFormState {
   title: string
@@ -47,7 +48,7 @@ export default function Vakter() {
   const [form, setForm] = useState<ShiftFormState>(emptyForm)
   const [saving, setSaving] = useState(false)
 
-  const isSuperadmin = selectedEvent?.viewer_role === 'superadmin'
+  const isSuperadmin = hasSuperadminAccess(selectedEvent?.viewer_role)
 
   const load = () => {
     if (!selectedEvent) return

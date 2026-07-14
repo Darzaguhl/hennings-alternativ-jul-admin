@@ -11,7 +11,7 @@ export interface User {
   experience_notes: string
 }
 
-export type ViewerRole = 'superadmin' | 'checkin_staff' | 'shift_leader' | 'volunteer' | null
+export type ViewerRole = 'owner' | 'superadmin' | 'checkin_staff' | 'shift_leader' | 'volunteer' | null
 
 export type CheckinMode = 'personal_qr' | 'event_qr'
 
@@ -49,7 +49,7 @@ export interface Shift {
   is_full: boolean
 }
 
-export type MembershipRole = 'superadmin' | 'checkin_staff'
+export type MembershipRole = 'owner' | 'superadmin' | 'checkin_staff'
 
 export interface Membership {
   id: number

@@ -3,6 +3,7 @@ import QRCode from 'qrcode'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import { Button, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
+import { hasSuperadminAccess } from '../utils/roles'
 
 export default function Innsjekk() {
   const { selectedEvent, refresh } = useEvents()
@@ -12,7 +13,7 @@ export default function Innsjekk() {
   const [submitting, setSubmitting] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const isSuperadmin = selectedEvent?.viewer_role === 'superadmin'
+  const isSuperadmin = hasSuperadminAccess(selectedEvent?.viewer_role)
 
   useEffect(() => {
     if (selectedEvent?.checkin_mode === 'event_qr' && canvasRef.current) {

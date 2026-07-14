@@ -3,8 +3,10 @@ import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { Membership, MembershipRole, User } from '../types'
 import { Badge, Button, Card, ErrorText, Label, PageHeader, Select } from '../components/ui'
+import { hasSuperadminAccess, isOwner } from '../utils/roles'
 
 const roleLabel: Record<MembershipRole, string> = {
+  owner: 'Eier',
   superadmin: 'Superadmin',
   checkin_staff: 'Innsjekk-ansvarlig',
 }
@@ -35,7 +37,7 @@ export default function Roller() {
 
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
-  if (selectedEvent.viewer_role !== 'superadmin') {
+  if (!hasSuperadminAccess(selectedEvent.viewer_role)) {
     return (
       <Card>
         <p className="text-ink-600">Bare superadmin kan administrere roller.</p>
@@ -43,6 +45,7 @@ export default function Roller() {
     )
   }
 
+  const viewerIsOwner = isOwner(selectedEvent.viewer_role)
   const availableUsers = users.filter((u) => !memberships.some((m) => m.user.id === u.id))
 
   const handleAdd = async () => {
@@ -72,7 +75,7 @@ export default function Roller() {
 
   return (
     <div>
-      <PageHeader title="Roller" subtitle={`Superadmin og innsjekk-ansvarlige for ${selectedEvent.title}`} />
+      <PageHeader title="Roller" subtitle={`Eier, superadmin og innsjekk-ansvarlige for ${selectedEvent.title}`} />
 
       <ErrorText>{error}</ErrorText>
 
@@ -94,7 +97,12 @@ export default function Roller() {
             <Label>Rolle</Label>
             <Select value={newRole} onChange={(e) => setNewRole(e.target.value as MembershipRole)}>
               <option value="checkin_staff">Innsjekk-ansvarlig</option>
-              <option value="superadmin">Superadmin</option>
+              {viewerIsOwner && (
+                <>
+                  <option value="superadmin">Superadmin</option>
+                  <option value="owner">Eier</option>
+                </>
+              )}
             </Select>
           </div>
           <Button onClick={handleAdd} disabled={saving || !newUserId}>
@@ -102,7 +110,9 @@ export default function Roller() {
           </Button>
         </div>
         <p className="mt-2 text-xs text-ink-400">
-          Ledere for enkeltvakter administreres på vakten selv, under Vakter.
+          {viewerIsOwner
+            ? 'Ledere for enkeltvakter administreres på vakten selv, under Vakter.'
+            : 'Bare eier kan gi superadmin- eller eiertilgang. Ledere for enkeltvakter administreres på vakten selv, under Vakter.'}
         </p>
       </Card>
 
@@ -110,19 +120,26 @@ export default function Roller() {
         <p className="text-ink-600">Laster …</p>
       ) : (
         <div className="flex flex-col gap-2">
-          {memberships.map((m) => (
-            <Card key={m.id} className="!p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-ink-900">{m.user.email}</span>
-                  <Badge tone={m.role === 'superadmin' ? 'success' : 'neutral'}>{roleLabel[m.role]}</Badge>
+          {memberships.map((m) => {
+            const canRemove = viewerIsOwner || m.role === 'checkin_staff'
+            return (
+              <Card key={m.id} className="!p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-ink-900">{m.user.email}</span>
+                    <Badge tone={m.role === 'owner' ? 'warning' : m.role === 'superadmin' ? 'success' : 'neutral'}>
+                      {roleLabel[m.role]}
+                    </Badge>
+                  </div>
+                  {canRemove && (
+                    <Button variant="danger" onClick={() => handleRemove(m)}>
+                      Fjern
+                    </Button>
+                  )}
                 </div>
-                <Button variant="danger" onClick={() => handleRemove(m)}>
-                  Fjern
-                </Button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            )
+          })}
           {memberships.length === 0 && <p className="text-ink-600">Ingen roller er satt opp ennå.</p>}
         </div>
       )}
