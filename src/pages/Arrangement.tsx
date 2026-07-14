@@ -13,6 +13,20 @@ const eventYearLabel = (event: Event) => {
   return event.title
 }
 
+const pad = (value: number) => `${value}`.padStart(2, '0')
+
+// <input type="datetime-local"> wants local time with no timezone suffix,
+// e.g. "2026-11-01T09:00" -- Date#toISOString() is always UTC, so this
+// converts using local getters instead of slicing the ISO string.
+const toDatetimeLocal = (iso: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const fromDatetimeLocal = (value: string): string | null => (value ? new Date(value).toISOString() : null)
+
 export default function Arrangement() {
   const { events, selectedEvent, loading, refresh, selectEvent } = useEvents()
   const [title, setTitle] = useState('')
@@ -23,12 +37,19 @@ export default function Arrangement() {
   const [status, setStatus] = useState('')
   const [lifecycleBusyId, setLifecycleBusyId] = useState<number | null>(null)
   const [lifecycleError, setLifecycleError] = useState('')
+  const [signupOpensAt, setSignupOpensAt] = useState('')
+  const [signupClosesAt, setSignupClosesAt] = useState('')
+  const [savingSignupWindow, setSavingSignupWindow] = useState(false)
+  const [signupWindowError, setSignupWindowError] = useState('')
+  const [signupWindowStatus, setSignupWindowStatus] = useState('')
 
   useEffect(() => {
     if (!selectedEvent) return
     setTitle(selectedEvent.title)
     setDescription(selectedEvent.description)
     setDate(selectedEvent.date ? selectedEvent.date.slice(0, 10) : '')
+    setSignupOpensAt(toDatetimeLocal(selectedEvent.signup_opens_at))
+    setSignupClosesAt(toDatetimeLocal(selectedEvent.signup_closes_at))
   }, [selectedEvent])
 
   const handleCreated = (id: number) => {
@@ -73,6 +94,24 @@ export default function Arrangement() {
       setError(err instanceof ApiError ? err.message : 'Kunne ikke lagre.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveSignupWindow = async () => {
+    setSavingSignupWindow(true)
+    setSignupWindowError('')
+    setSignupWindowStatus('')
+    try {
+      await api.updateEvent(selectedEvent.id, {
+        signup_opens_at: fromDatetimeLocal(signupOpensAt),
+        signup_closes_at: fromDatetimeLocal(signupClosesAt),
+      })
+      setSignupWindowStatus('Lagret.')
+      refresh()
+    } catch (err) {
+      setSignupWindowError(err instanceof ApiError ? err.message : 'Kunne ikke lagre.')
+    } finally {
+      setSavingSignupWindow(false)
     }
   }
 
@@ -214,6 +253,33 @@ export default function Arrangement() {
           {status && <p className="text-sm text-green-800">{status}</p>}
           <Button onClick={handleSave} disabled={saving} className="self-start">
             {saving ? 'Lagrer …' : 'Lagre'}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="mb-8 max-w-lg">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">Påmelding</h2>
+          <Badge tone={selectedEvent.signups_open ? 'success' : 'neutral'}>
+            {selectedEvent.signups_open ? 'Åpen' : 'Stengt'}
+          </Badge>
+        </div>
+        <p className="mb-3 text-sm text-ink-600">
+          Styrer når frivillige kan melde seg på via nettsiden. La et felt stå tomt for ingen nedre/øvre grense.
+        </p>
+        <div className="flex flex-col gap-3">
+          <div>
+            <Label>Påmelding åpner</Label>
+            <Input type="datetime-local" value={signupOpensAt} onChange={(e) => setSignupOpensAt(e.target.value)} />
+          </div>
+          <div>
+            <Label>Påmelding stenger</Label>
+            <Input type="datetime-local" value={signupClosesAt} onChange={(e) => setSignupClosesAt(e.target.value)} />
+          </div>
+          <ErrorText>{signupWindowError}</ErrorText>
+          {signupWindowStatus && <p className="text-sm text-green-800">{signupWindowStatus}</p>}
+          <Button onClick={handleSaveSignupWindow} disabled={savingSignupWindow} className="self-start">
+            {savingSignupWindow ? 'Lagrer …' : 'Lagre'}
           </Button>
         </div>
       </Card>

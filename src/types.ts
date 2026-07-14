@@ -22,6 +22,9 @@ export interface Event {
   date: string | null
   code: string
   is_active: boolean
+  signup_opens_at: string | null
+  signup_closes_at: string | null
+  signups_open: boolean
   checkin_mode: CheckinMode
   created_by: User
   viewer_role: ViewerRole
