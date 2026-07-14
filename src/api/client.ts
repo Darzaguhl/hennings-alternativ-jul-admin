@@ -143,6 +143,8 @@ export const api = {
   updateEvent: (id: number, data: Partial<Event>) =>
     request<Event>(`/api/events/${id}/`, { method: 'PATCH', body: data }),
   deleteEvent: (id: number) => request<void>(`/api/events/${id}/`, { method: 'DELETE' }),
+  activateEvent: (id: number) => request<Event>(`/api/events/${id}/activate/`, { method: 'POST' }),
+  deactivateEvent: (id: number) => request<Event>(`/api/events/${id}/deactivate/`, { method: 'POST' }),
 
   shifts: (eventId: number) => request<Shift[]>('/api/shifts/', { params: { event: eventId } }),
   createShift: (data: Partial<Shift> & { event: number }) =>

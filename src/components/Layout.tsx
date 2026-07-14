@@ -36,6 +36,7 @@ export default function Layout() {
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
                 {ev.title}
+                {ev.is_active ? ' (aktiv)' : ''}
               </option>
             ))}
           </select>
