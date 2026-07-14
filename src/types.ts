@@ -59,6 +59,25 @@ export interface Membership {
   created_at: string
 }
 
+export interface Invite {
+  id: number
+  event: number
+  email: string
+  role: MembershipRole
+  invited_by: User
+  created_at: string
+  expires_at: string
+  accepted_at: string | null
+  is_usable: boolean
+}
+
+export interface InvitePreview {
+  email: string
+  role: MembershipRole
+  event_title: string
+  is_usable: boolean
+}
+
 export interface ShiftSignup {
   id: number
   shift: Shift

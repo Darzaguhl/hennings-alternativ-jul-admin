@@ -2,6 +2,8 @@ import type {
   Assignment,
   Event,
   EventMetrics,
+  Invite,
+  InvitePreview,
   Membership,
   MembershipRole,
   PoolEntry,
@@ -160,6 +162,30 @@ export const api = {
     request<void>(`/api/events/${eventId}/remove-membership/`, {
       method: 'POST',
       body: { membership_id: membershipId },
+    }),
+
+  invites: (eventId: number) => request<Invite[]>(`/api/events/${eventId}/invites/`),
+  createInvite: (eventId: number, email: string, role: MembershipRole) =>
+    request<Invite>(`/api/events/${eventId}/invites/`, { method: 'POST', body: { email, role } }),
+  revokeInvite: (eventId: number, inviteId: number) =>
+    request<void>(`/api/events/${eventId}/revoke-invite/`, { method: 'POST', body: { invite_id: inviteId } }),
+
+  // Unauthenticated: no access token exists yet for someone accepting an
+  // invite, so these bypass the normal Authorization-header request().
+  inviteByToken: (token: string) =>
+    fetch(`${API_BASE_URL}/api/invites/${token}/`).then(async (res) => {
+      if (!res.ok) throw new ApiError(res.status, null, 'Invite not found')
+      return (await res.json()) as InvitePreview
+    }),
+  acceptInvite: (token: string, password: string) =>
+    fetch(`${API_BASE_URL}/api/invites/accept/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password }),
+    }).then(async (res) => {
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new ApiError(res.status, body, extractErrorMessage(body))
+      return body as { access: string; refresh: string; user: User; event: Event }
     }),
 
   pool: (eventId: number, date?: string) =>
