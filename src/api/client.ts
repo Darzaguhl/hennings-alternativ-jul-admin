@@ -123,10 +123,18 @@ async function request<T>(path: string, options: RequestOptions = {}, retry = tr
 }
 
 export const api = {
+  // Unauthenticated, and a wrong-password 401 here is a normal outcome, not
+  // an expired session — bypass request()'s refresh-then-hard-redirect logic
+  // so the error surfaces inline on the login form instead of reloading the page.
   login: (email: string, password: string) =>
-    request<{ access: string; refresh: string }>('/api/token/', {
+    fetch(`${API_BASE_URL}/api/token/`, {
       method: 'POST',
-      body: { email, password },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    }).then(async (res) => {
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new ApiError(res.status, body, extractErrorMessage(body))
+      return body as { access: string; refresh: string }
     }),
 
   me: () => request<User>('/api/users/me/'),
