@@ -9,6 +9,7 @@ import type {
   OppgaveHistoryEntry,
   PoolEntry,
   Shift,
+  Skill,
   User,
 } from '../types'
 
@@ -163,6 +164,12 @@ export const api = {
     request<Shift>(`/api/shifts/${id}/`, { method: 'PATCH', body: data }),
   deleteShift: (id: number) => request<void>(`/api/shifts/${id}/`, { method: 'DELETE' }),
   shiftAssignments: (id: number) => request<Assignment[]>(`/api/shifts/${id}/assignments/`),
+
+  skills: () => request<Skill[]>('/api/skills/'),
+  createSkill: (data: Partial<Skill>) => request<Skill>('/api/skills/', { method: 'POST', body: data }),
+  updateSkill: (id: number, data: Partial<Skill>) =>
+    request<Skill>(`/api/skills/${id}/`, { method: 'PATCH', body: data }),
+  deleteSkill: (id: number) => request<void>(`/api/skills/${id}/`, { method: 'DELETE' }),
 
   memberships: (eventId: number) => request<Membership[]>(`/api/events/${eventId}/memberships/`),
   addMembership: (eventId: number, userId: number, role: MembershipRole) =>

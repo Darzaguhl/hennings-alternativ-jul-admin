@@ -11,6 +11,7 @@ import Innsjekk from './pages/Innsjekk'
 import Arrangement from './pages/Arrangement'
 import Frivillige from './pages/Frivillige'
 import Historikk from './pages/Historikk'
+import Oppgaver from './pages/Oppgaver'
 import AcceptInvite from './pages/AcceptInvite'
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="roller" element={<Roller />} />
               <Route path="arrangement" element={<Arrangement />} />
               <Route path="historikk" element={<Historikk />} />
+              <Route path="oppgaver" element={<Oppgaver />} />
             </Route>
           </Route>
         </Routes>
