@@ -74,6 +74,11 @@ export default function Layout() {
               Arrangement
             </NavLink>
           )}
+          {canManageEvent && (
+            <NavLink to="/historikk" className={navItemClass}>
+              Historikk
+            </NavLink>
+          )}
         </nav>
 
         <div className="mt-auto border-t border-green-800 pt-4">

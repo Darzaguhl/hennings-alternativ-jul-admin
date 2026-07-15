@@ -102,7 +102,7 @@ export default function Dashboard() {
               <p className="text-sm text-ink-600">Ingen vakter denne dagen.</p>
             ) : (
               <>
-                <div className="mb-6 h-64">
+                <div className="mb-6" style={{ height: 256 }}>
                   <Bar
                     data={{
                       labels: metrics.shifts.map((s) => s.title),
@@ -111,11 +111,13 @@ export default function Dashboard() {
                           label: 'Tildelt',
                           data: metrics.shifts.map((s) => s.assigned_count),
                           backgroundColor: '#1b4332',
+                          maxBarThickness: 40,
                         },
                         {
                           label: 'Påmeldt (interesse)',
                           data: metrics.shifts.map((s) => s.signup_count),
                           backgroundColor: '#c99a3d',
+                          maxBarThickness: 40,
                         },
                       ],
                     }}
@@ -188,7 +190,7 @@ export default function Dashboard() {
               <p className="mb-4 text-sm text-ink-600">
                 Hvor mange frivillige har krysset av for hver oppgave. Én person kan telle i flere søyler.
               </p>
-              <div className="h-64">
+              <div style={{ height: Math.min(Math.max(skillCounts.length * 36 + 24, 120), 480) }}>
                 <Bar
                   data={{
                     labels: skillCounts.map(([name]) => name),
@@ -197,6 +199,7 @@ export default function Dashboard() {
                         label: 'Interesserte',
                         data: skillCounts.map(([, count]) => count),
                         backgroundColor: '#c99a3d',
+                        maxBarThickness: 28,
                       },
                     ],
                   }}
