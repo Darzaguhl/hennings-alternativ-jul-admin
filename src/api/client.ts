@@ -32,6 +32,21 @@ export const tokenStore = {
   },
 }
 
+// Set by AuthProvider on mount so a dead session (both the access token
+// expired AND the refresh call failing, e.g. because the backend is still
+// waking up from Render free-tier sleep) clears React's user state and
+// lets the existing <ProtectedRoute> redirect via React Router. A hard
+// window.location.assign('/login') from here used to do this instead --
+// same anti-pattern already fixed once for login() (see "Fix wrong-
+// password login showing as a page reload/not-found") -- forcing a real
+// browser navigation out from under an in-flight SPA render is exactly
+// what was producing the same "Not Found" flash on refresh right after a
+// backend restart.
+let onSessionExpired: (() => void) | null = null
+export const setSessionExpiredHandler = (fn: (() => void) | null) => {
+  onSessionExpired = fn
+}
+
 export class ApiError extends Error {
   status: number
   body: unknown
@@ -112,7 +127,7 @@ async function request<T>(path: string, options: RequestOptions = {}, retry = tr
     const newAccess = await refreshAccessToken()
     if (newAccess) return request<T>(path, options, false)
     tokenStore.clear()
-    window.location.assign('/login')
+    onSessionExpired?.()
     throw new ApiError(401, null, 'Session expired')
   }
 
