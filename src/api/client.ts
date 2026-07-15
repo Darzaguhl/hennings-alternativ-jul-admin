@@ -139,6 +139,7 @@ export const api = {
 
   me: () => request<User>('/api/users/me/'),
   users: () => request<User[]>('/api/users/'),
+  deleteUser: (userId: number) => request<void>(`/api/users/${userId}/`, { method: 'DELETE' }),
   userNotes: (userId: number) => request<{ id: number; email: string; admin_notes: string }>(`/api/users/${userId}/notes/`),
   updateUserNotes: (userId: number, adminNotes: string) =>
     request<{ id: number; email: string; admin_notes: string }>(`/api/users/${userId}/notes/`, {
