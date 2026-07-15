@@ -11,7 +11,7 @@ import {
 } from 'chart.js'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
-import type { EventMetrics, User } from '../types'
+import type { EventMetrics, Shift, User } from '../types'
 import { Badge, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [date, setDate] = useState(todayIso())
   const [metrics, setMetrics] = useState<EventMetrics | null>(null)
   const [users, setUsers] = useState<User[]>([])
+  const [allShifts, setAllShifts] = useState<Shift[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -42,16 +43,49 @@ export default function Dashboard() {
   useEffect(() => {
     if (!selectedEvent) return
     api.users().then(setUsers).catch(() => {})
+    // Unlike metrics.shifts (scoped to the selected date), this is every
+    // vakt in the event -- needed to correlate oppgave interest with
+    // actual signups/tildelinger regardless of which date is picked above,
+    // since most of the year there simply are no vakter "today".
+    api.shifts(selectedEvent.id).then(setAllShifts).catch(() => {})
   }, [selectedEvent])
 
-  // Oppgave (skill) interest is a per-user attribute, not tied to a single
-  // day the way vakt signups are -- a bar chart, not a pie, because one
-  // volunteer can list several oppgaver, so counts don't sum to a whole.
-  const skillCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    users.forEach((u) => u.skills.forEach((s) => counts.set(s.name, (counts.get(s.name) ?? 0) + 1)))
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
-  }, [users])
+  // Oppgave interest (Skill, a per-user attribute) vs. what actually
+  // happens on a vakt with that title -- signups and tildelinger. Shift
+  // titles are the oppgave names (see Shift's docstring, e.g. "Kjøkken"),
+  // so grouping by normalized title lines the two up. Union of both sides:
+  // an oppgave can have interest with no vakt yet, or a vakt with no
+  // matching Skill if nobody picked it at signup.
+  const oppgaveRows = useMemo(() => {
+    const rows = new Map<string, { label: string; interest: number; signups: number; assigned: number }>()
+    const rowFor = (rawLabel: string) => {
+      const label = rawLabel.trim()
+      const key = label.toLowerCase()
+      if (!key) return null
+      let row = rows.get(key)
+      if (!row) {
+        row = { label, interest: 0, signups: 0, assigned: 0 }
+        rows.set(key, row)
+      }
+      return row
+    }
+
+    users.forEach((u) =>
+      u.skills.forEach((s) => {
+        const row = rowFor(s.name)
+        if (row) row.interest += 1
+      })
+    )
+    allShifts.forEach((s) => {
+      const row = rowFor(s.title)
+      if (row) {
+        row.signups += s.signup_count
+        row.assigned += s.assigned_count
+      }
+    })
+
+    return Array.from(rows.values()).sort((a, b) => b.interest - a.interest || b.signups - a.signups)
+  }, [users, allShifts])
 
   if (eventsLoading) return <p className="text-ink-600">Laster …</p>
   if (!selectedEvent) {
@@ -184,22 +218,35 @@ export default function Dashboard() {
             )}
           </Card>
 
-          {skillCounts.length > 0 && (
+          {oppgaveRows.length > 0 && (
             <Card>
-              <h2 className="mb-1 text-lg font-semibold text-green-900">Interesse per oppgave</h2>
+              <h2 className="mb-1 text-lg font-semibold text-green-900">Oppgaveoversikt</h2>
               <p className="mb-4 text-sm text-ink-600">
-                Hvor mange frivillige har krysset av for hver oppgave. Én person kan telle i flere søyler.
+                Interesse (krysset av ved påmelding) mot faktiske påmeldinger og tildelinger på vakter med samme
+                navn, for hele {selectedEvent.title} — uavhengig av datoen valgt over.
               </p>
-              <div style={{ height: Math.min(Math.max(skillCounts.length * 36 + 24, 120), 480) }}>
+              <div style={{ height: Math.min(Math.max(oppgaveRows.length * 40 + 24, 120), 520) }}>
                 <Bar
                   data={{
-                    labels: skillCounts.map(([name]) => name),
+                    labels: oppgaveRows.map((r) => r.label),
                     datasets: [
                       {
                         label: 'Interesserte',
-                        data: skillCounts.map(([, count]) => count),
+                        data: oppgaveRows.map((r) => r.interest),
+                        backgroundColor: '#8a836f',
+                        maxBarThickness: 22,
+                      },
+                      {
+                        label: 'Påmeldt vakt',
+                        data: oppgaveRows.map((r) => r.signups),
                         backgroundColor: '#c99a3d',
-                        maxBarThickness: 28,
+                        maxBarThickness: 22,
+                      },
+                      {
+                        label: 'Tildelt',
+                        data: oppgaveRows.map((r) => r.assigned),
+                        backgroundColor: '#1b4332',
+                        maxBarThickness: 22,
                       },
                     ],
                   }}
@@ -207,7 +254,6 @@ export default function Dashboard() {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
                     scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
                   }}
                 />
