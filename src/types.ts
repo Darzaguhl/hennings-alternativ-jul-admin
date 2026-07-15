@@ -1,6 +1,9 @@
 export interface Skill {
   id: number
   name: string
+  allowed_in_setup: boolean
+  allowed_in_guest: boolean
+  allowed_in_teardown: boolean
 }
 
 export interface User {
@@ -33,6 +36,7 @@ export interface Event {
 }
 
 export type Criticality = 'normal' | 'critical'
+export type Phase = 'setup' | 'guest' | 'teardown' | ''
 
 export interface Shift {
   id: number
@@ -44,6 +48,7 @@ export interface Shift {
   capacity: number | null
   min_capacity: number | null
   criticality: Criticality
+  phase: Phase
   is_critical: boolean
   is_understaffed: boolean
   created_by: User

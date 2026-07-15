@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
-import type { Criticality, Shift, User } from '../types'
+import type { Criticality, Phase, Shift, User } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
 import { hasAdminAccess } from '../utils/roles'
+
+const phaseLabels: Record<Phase, string> = {
+  setup: 'Forberedelse',
+  guest: 'Gjester til stede',
+  teardown: 'Rydding',
+  '': 'Ikke satt',
+}
 
 interface ShiftFormState {
   title: string
@@ -13,6 +20,7 @@ interface ShiftFormState {
   capacity: string
   min_capacity: string
   criticality: Criticality
+  phase: Phase
   leader_ids: number[]
 }
 
@@ -24,6 +32,7 @@ const emptyForm: ShiftFormState = {
   capacity: '',
   min_capacity: '',
   criticality: 'normal',
+  phase: '',
   leader_ids: [],
 }
 
@@ -35,6 +44,7 @@ const toFormState = (shift: Shift): ShiftFormState => ({
   capacity: shift.capacity?.toString() ?? '',
   min_capacity: shift.min_capacity?.toString() ?? '',
   criticality: shift.criticality,
+  phase: shift.phase,
   leader_ids: shift.leaders.map((l) => l.id),
 })
 
@@ -89,6 +99,7 @@ export default function Vakter() {
       capacity: form.capacity === '' ? null : Number(form.capacity),
       min_capacity: form.min_capacity === '' ? null : Number(form.min_capacity),
       criticality: form.criticality,
+      phase: form.phase,
       ...(isAdmin ? { leader_ids: form.leader_ids } : {}),
     }
     try {
@@ -138,6 +149,7 @@ export default function Vakter() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-ink-900">{shift.title}</span>
+                    {shift.phase && <Badge tone="neutral">{phaseLabels[shift.phase]}</Badge>}
                     {shift.criticality === 'critical' && <Badge tone="critical">Krever erfaring</Badge>}
                     {shift.is_understaffed && <Badge tone="warning">Underbemannet</Badge>}
                     {shift.is_full && <Badge tone="success">Fullt</Badge>}
@@ -230,6 +242,18 @@ export default function Vakter() {
                     <option value="critical">Ja</option>
                   </Select>
                 </div>
+              </div>
+              <div>
+                <Label>Fase</Label>
+                <Select value={form.phase} onChange={(e) => setForm({ ...form, phase: e.target.value as Phase })}>
+                  <option value="">Ikke satt</option>
+                  <option value="setup">Forberedelse</option>
+                  <option value="guest">Gjester til stede</option>
+                  <option value="teardown">Rydding</option>
+                </Select>
+                <p className="mt-1 text-xs text-ink-400">
+                  Avgjør hvilke oppgaver som kan velges for denne vakten — se Oppgaver.
+                </p>
               </div>
               {isAdmin && (
                 <div>
