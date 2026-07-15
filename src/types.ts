@@ -125,3 +125,18 @@ export interface EventMetrics {
   in_pool: number
   shifts: ShiftMetric[]
 }
+
+export interface OppgaveHistoryYear {
+  year: string
+  signups: number
+  assigned: number
+}
+
+export interface OppgaveHistoryEntry {
+  title: string
+  years: OppgaveHistoryYear[]
+  total_signups: number
+  total_assigned: number
+  fill_rate: number | null
+  oversubscription_factor: number | null
+}

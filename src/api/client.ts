@@ -6,6 +6,7 @@ import type {
   InvitePreview,
   Membership,
   MembershipRole,
+  OppgaveHistoryEntry,
   PoolEntry,
   Shift,
   User,
@@ -210,4 +211,6 @@ export const api = {
 
   metrics: (eventId: number, date?: string) =>
     request<EventMetrics>(`/api/events/${eventId}/metrics/`, { params: { date } }),
+
+  oppgaveHistory: () => request<OppgaveHistoryEntry[]>('/api/metrics/oppgave-history/'),
 }
