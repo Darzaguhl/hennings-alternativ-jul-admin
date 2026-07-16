@@ -188,6 +188,11 @@ function VolunteerCard({
         <div className="flex-1">
           <p className="font-medium text-ink-900">{displayName(user)}</p>
           {displayName(user) !== user.email && <p className="text-xs text-ink-400">{user.email}</p>}
+          {(user.phone || user.address || user.birthdate) && (
+            <p className="mt-0.5 text-xs text-ink-600">
+              {[user.phone, user.address, user.birthdate].filter(Boolean).join(' · ')}
+            </p>
+          )}
           <div className="mt-2">
             {shifts.length === 0 ? (
               <p className="text-sm text-ink-400">Ikke meldt på noen vakt ennå.</p>

@@ -10,6 +10,14 @@ export interface User {
   first_name: string
   last_name: string
   experience_notes: string
+  // Only present where the backend uses MeSerializer -- your own profile
+  // (/me) and the roster (users list/retrieve, already gated to
+  // admin/staff/leader). Absent on the plain UserSerializer embedded in
+  // shift participants/leaders/pool/assignments, which every volunteer on
+  // a shift can see -- see MeSerializer's docstring on the backend.
+  phone?: string | null
+  address?: string
+  birthdate?: string | null
 }
 
 export type ViewerRole = 'owner' | 'admin' | 'checkin_staff' | 'shift_leader' | 'volunteer' | null
