@@ -6,6 +6,11 @@ import { api, ApiError } from '../api/client'
 import type { User } from '../types'
 import { Button, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
 
+const displayName = (user: User) => {
+  const name = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
+  return name || user.email
+}
+
 export default function Innsjekk() {
   const { selectedEvent } = useEvents()
   const [userCode, setUserCode] = useState('')
@@ -30,7 +35,13 @@ export default function Innsjekk() {
 
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
-  const matches = search.trim().length < 2 ? [] : users.filter((u) => u.email.toLowerCase().includes(search.trim().toLowerCase()))
+  const matches =
+    search.trim().length < 2
+      ? []
+      : users.filter((u) => {
+          const term = search.trim().toLowerCase()
+          return u.email.toLowerCase().includes(term) || displayName(u).toLowerCase().includes(term)
+        })
 
   const handleManualCheckin = async (user: User) => {
     setCheckingInId(user.id)
@@ -84,7 +95,7 @@ export default function Innsjekk() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-600">
           Sjekk inn manuelt
         </h2>
-        <Label>Søk på e-post</Label>
+        <Label>Søk på navn eller e-post</Label>
         <Input
           autoFocus
           value={search}
@@ -95,7 +106,10 @@ export default function Innsjekk() {
           <div className="mt-3 flex flex-col gap-2">
             {matches.map((u) => (
               <div key={u.id} className="flex items-center justify-between rounded-lg bg-cream-50 px-3 py-2">
-                <span className="text-sm text-ink-900">{u.email}</span>
+                <span className="text-sm text-ink-900">
+                  {displayName(u)}
+                  {displayName(u) !== u.email && <span className="ml-2 text-xs text-ink-400">{u.email}</span>}
+                </span>
                 <Button
                   onClick={() => handleManualCheckin(u)}
                   disabled={checkingInId === u.id}
