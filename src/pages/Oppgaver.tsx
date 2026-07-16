@@ -3,14 +3,6 @@ import { api, ApiError } from '../api/client'
 import type { Skill } from '../types'
 import { Button, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
 
-type PhaseField = 'allowed_in_setup' | 'allowed_in_guest' | 'allowed_in_teardown'
-
-const phaseFields: { field: PhaseField; label: string }[] = [
-  { field: 'allowed_in_setup', label: 'Forberedelse' },
-  { field: 'allowed_in_guest', label: 'Gjester til stede' },
-  { field: 'allowed_in_teardown', label: 'Rydding' },
-]
-
 export default function Oppgaver() {
   const [skills, setSkills] = useState<Skill[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,17 +37,6 @@ export default function Oppgaver() {
     }
   }
 
-  const togglePhase = async (skill: Skill, field: PhaseField) => {
-    const next = { ...skill, [field]: !skill[field] }
-    setSkills((prev) => prev.map((s) => (s.id === skill.id ? next : s)))
-    try {
-      await api.updateSkill(skill.id, { [field]: next[field] })
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Kunne ikke lagre endringen.')
-      load()
-    }
-  }
-
   const handleDelete = async (skill: Skill) => {
     if (!confirm(`Slette oppgaven «${skill.name}»?`)) return
     try {
@@ -68,16 +49,14 @@ export default function Oppgaver() {
 
   return (
     <div>
-      <PageHeader title="Oppgaver" subtitle="Hvilke vakt-faser hver oppgave gjelder for" />
+      <PageHeader title="Oppgaver" subtitle="Katalogen over oppgaver en vakt kan tilby" />
 
       <ErrorText>{error}</ErrorText>
 
       <Card className="mb-6">
         <p className="text-sm text-ink-600">
-          Kryss av hvilke faser en oppgave er aktuell for — f.eks. er «Vertskap» normalt kun aktuelt på vakter merket
-          «Gjester til stede», mens «Hva som helst på forberedelsesvakt» kun gjelder «Forberedelse». En volontør kan
-          kun melde seg på en vakt dersom minst én av oppgavene de har krysset av for, gjelder for vaktens fase (satt
-          under Vakter). Ingen faser krysset av betyr uten restriksjon.
+          Dette er kun navnekatalogen. Hvilke vakter en oppgave faktisk tilbys på — og hvor mange plasser den har —
+          settes per vakt under Vakter.
         </p>
       </Card>
 
@@ -102,19 +81,6 @@ export default function Oppgaver() {
                 <Button variant="danger" onClick={() => handleDelete(skill)} className="!px-3 !py-1.5 !text-xs">
                   Slett
                 </Button>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-4">
-                {phaseFields.map(({ field, label }) => (
-                  <label key={field} className="flex items-center gap-2 text-sm text-ink-700">
-                    <input
-                      type="checkbox"
-                      checked={skill[field]}
-                      onChange={() => togglePhase(skill, field)}
-                      className="h-4 w-4 rounded border-cream-200"
-                    />
-                    {label}
-                  </label>
-                ))}
               </div>
             </Card>
           ))}

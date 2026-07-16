@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
-import type { PoolEntry } from '../types'
+import type { OppgaveSlot, PoolEntry } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
+
+// OppgaveSlot.is_full reflects signup interest reaching capacity, which is
+// expected to happen routinely (that's the whole point of the pool -- more
+// candidates than seats) and says nothing about whether there's still room
+// to actually assign someone. The assign picker needs to gate on confirmed
+// placements instead.
+const isFullForAssignment = (slot: OppgaveSlot) => slot.capacity !== null && slot.assigned_count >= slot.capacity
 
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
@@ -28,7 +35,7 @@ export default function Pool() {
         setEntries(data)
         const defaults: Record<number, number> = {}
         data.forEach((entry) => {
-          if (entry.suggested_shift) defaults[entry.user.id] = entry.suggested_shift.id
+          if (entry.suggested_oppgave_slot) defaults[entry.user.id] = entry.suggested_oppgave_slot.id
         })
         setSelection(defaults)
       })
@@ -41,12 +48,12 @@ export default function Pool() {
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
   const handleAssign = async (userId: number) => {
-    const shiftId = selection[userId]
-    if (!shiftId) return
+    const oppgaveSlotId = selection[userId]
+    if (!oppgaveSlotId) return
     setAssigning(userId)
     setError('')
     try {
-      await api.assign(selectedEvent.id, userId, shiftId)
+      await api.assign(selectedEvent.id, userId, oppgaveSlotId)
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Kunne ikke tildele oppgave.')
@@ -85,16 +92,23 @@ export default function Pool() {
                   <p className="font-medium text-ink-900">{entry.user.email}</p>
                   <p className="text-sm text-ink-600">Sjekket inn kl. {formatTime(entry.checked_in_at)}</p>
                   {entry.candidates.length === 0 ? (
-                    <p className="mt-1 text-sm text-ink-400">Ikke meldt interesse for noen vakt i dag.</p>
+                    <p className="mt-1 text-sm text-ink-400">Ikke meldt interesse for noen oppgave i dag.</p>
                   ) : (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {entry.candidates.map((c) => (
                         <Badge
                           key={c.id}
-                          tone={c.shift.id === entry.suggested_shift?.id ? 'success' : 'neutral'}
+                          tone={
+                            isFullForAssignment(c.oppgave_slot)
+                              ? 'critical'
+                              : c.oppgave_slot.id === entry.suggested_oppgave_slot?.id
+                                ? 'success'
+                                : 'neutral'
+                          }
                         >
-                          {c.shift.title}
+                          {c.oppgave_slot.shift_title} — {c.oppgave_slot.skill_name}
                           {c.shift.is_critical && (c.has_relevant_experience ? ' · erfaren' : ' · uerfaren')}
+                          {isFullForAssignment(c.oppgave_slot) && ' · full'}
                         </Badge>
                       ))}
                     </div>
@@ -102,18 +116,26 @@ export default function Pool() {
                 </div>
 
                 <div className="flex flex-shrink-0 items-end gap-2">
-                  <div className="w-56">
-                    <Label>Tildel vakt</Label>
+                  <div className="w-64">
+                    <Label>Tildel oppgave</Label>
                     <Select
                       value={selection[entry.user.id] ?? ''}
                       onChange={(e) =>
                         setSelection({ ...selection, [entry.user.id]: Number(e.target.value) })
                       }
                     >
-                      <option value="">Velg vakt …</option>
+                      <option value="">Velg oppgave …</option>
                       {entry.candidates.map((c) => (
-                        <option key={c.shift.id} value={c.shift.id}>
-                          {c.shift.title}
+                        <option
+                          key={c.oppgave_slot.id}
+                          value={c.oppgave_slot.id}
+                          disabled={isFullForAssignment(c.oppgave_slot)}
+                        >
+                          {c.oppgave_slot.shift_title} — {c.oppgave_slot.skill_name}
+                          {c.oppgave_slot.capacity !== null
+                            ? ` (${c.oppgave_slot.assigned_count}/${c.oppgave_slot.capacity})`
+                            : ''}
+                          {isFullForAssignment(c.oppgave_slot) ? ' · full' : ''}
                         </option>
                       ))}
                     </Select>

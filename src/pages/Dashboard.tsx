@@ -11,7 +11,7 @@ import {
 } from 'chart.js'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
-import type { EventMetrics, Phase, Shift, User } from '../types'
+import type { EventMetrics, OppgaveSlot, Shift } from '../types'
 import { Badge, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
@@ -20,23 +20,55 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 
 const DOUGHNUT_COLORS = { filled: '#1b4332', empty: '#ebe1cd' }
 
-const PHASES: { phase: Phase; label: string; field: 'allowed_in_setup' | 'allowed_in_guest' | 'allowed_in_teardown' }[] = [
-  { phase: 'setup', label: 'Forberedelse', field: 'allowed_in_setup' },
-  { phase: 'guest', label: 'Gjester til stede', field: 'allowed_in_guest' },
-  { phase: 'teardown', label: 'Rydding', field: 'allowed_in_teardown' },
-]
-
 export default function Dashboard() {
   const { selectedEvent, loading: eventsLoading } = useEvents()
-  const [date, setDate] = useState(todayIso())
+  const [date, setDate] = useState('')
+  const [dateInitialized, setDateInitialized] = useState(false)
   const [metrics, setMetrics] = useState<EventMetrics | null>(null)
-  const [users, setUsers] = useState<User[]>([])
   const [allShifts, setAllShifts] = useState<Shift[]>([])
+  const [shiftsLoaded, setShiftsLoaded] = useState(false)
+  const [oppgaveSlots, setOppgaveSlots] = useState<OppgaveSlot[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!selectedEvent) return
+    // Unlike metrics.shifts (scoped to the selected date), these are every
+    // vakt/oppgave-slot in the event -- needed for the date default below
+    // and the per-oppgave correlation, regardless of which date is picked,
+    // since most of the year there simply are no vakter "today".
+    setShiftsLoaded(false)
+    api
+      .shifts(selectedEvent.id)
+      .then(setAllShifts)
+      .finally(() => setShiftsLoaded(true))
+    api.oppgaveSlots({ event: selectedEvent.id }).then(setOppgaveSlots).catch(() => {})
+  }, [selectedEvent])
+
+  // The event only runs a handful of days in December, so "today" is a
+  // meaningless default the other ~360 days of the year -- default instead
+  // to the event's earliest actual vakt date. Runs once per event
+  // (dateInitialized), so it doesn't clobber a date the admin picked
+  // afterwards; waits for shiftsLoaded so an event with no vakter yet
+  // doesn't get stuck deciding between "still loading" and "genuinely
+  // empty".
+  useEffect(() => {
+    setDateInitialized(false)
+    setDate('')
+  }, [selectedEvent?.id])
+
+  useEffect(() => {
+    if (!selectedEvent || dateInitialized || !shiftsLoaded) return
+    const earliest =
+      allShifts.length > 0
+        ? allShifts.reduce((min, s) => (s.date < min ? s.date : min), allShifts[0].date)
+        : (selectedEvent.date?.slice(0, 10) ?? todayIso())
+    setDate(earliest)
+    setDateInitialized(true)
+  }, [selectedEvent, allShifts, shiftsLoaded, dateInitialized])
+
+  useEffect(() => {
+    if (!selectedEvent || !date) return
     setLoading(true)
     setError('')
     api
@@ -46,53 +78,22 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [selectedEvent, date])
 
-  useEffect(() => {
-    if (!selectedEvent) return
-    api.users().then(setUsers).catch(() => {})
-    // Unlike metrics.shifts (scoped to the selected date), this is every
-    // vakt in the event -- needed for the phase correlation below
-    // regardless of which date is picked above, since most of the year
-    // there simply are no vakter "today".
-    api.shifts(selectedEvent.id).then(setAllShifts).catch(() => {})
-  }, [selectedEvent])
-
-  // Oppgave (skill) interest is a per-user attribute, not tied to a single
-  // day the way vakt signups are -- a bar chart, not a pie, because one
-  // volunteer can list several oppgaver, so counts don't sum to a whole.
-  const skillCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    users.forEach((u) => u.skills.forEach((s) => counts.set(s.name, (counts.get(s.name) ?? 0) + 1)))
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
-  }, [users])
-
-  // Interest vs. actual signups/tildelinger, grouped by vakt-fase rather
-  // than matched by name -- a vakt ("Vakt 5") and an oppgave ("Vertskap")
-  // don't share a name to match on, but they do share a phase, which is
-  // also the exact gate ShiftViewSet.signup enforces server-side. A user
-  // counts as "interested" in a phase if any of their oppgaver allow it
-  // (an unrestricted oppgave counts toward all three).
-  const phaseRows = useMemo(() => {
-    const rows = PHASES.map(({ phase, label, field }) => {
-      const interest = users.filter((u) => u.skills.some((s) => s[field])).length
-      const shiftsInPhase = allShifts.filter((s) => s.phase === phase)
-      return {
-        label,
-        interest,
-        signups: shiftsInPhase.reduce((sum, s) => sum + s.signup_count, 0),
-        assigned: shiftsInPhase.reduce((sum, s) => sum + s.assigned_count, 0),
-      }
+  // Interest is now literally "signed up for this specific oppgave on this
+  // specific vakt" (OppgaveSlot.signup_count) -- summed per oppgave (Skill)
+  // across every vakt it's offered on, since that's the actual unit an
+  // admin cares about staffing.
+  const skillRows = useMemo(() => {
+    const rows = new Map<string, { interest: number; assigned: number }>()
+    oppgaveSlots.forEach((slot) => {
+      const row = rows.get(slot.skill_name) ?? { interest: 0, assigned: 0 }
+      row.interest += slot.signup_count
+      row.assigned += slot.assigned_count
+      rows.set(slot.skill_name, row)
     })
-    const uncategorized = allShifts.filter((s) => !s.phase)
-    if (uncategorized.length > 0) {
-      rows.push({
-        label: 'Ikke satt',
-        interest: 0,
-        signups: uncategorized.reduce((sum, s) => sum + s.signup_count, 0),
-        assigned: uncategorized.reduce((sum, s) => sum + s.assigned_count, 0),
-      })
-    }
-    return rows
-  }, [users, allShifts])
+    return Array.from(rows.entries())
+      .map(([label, r]) => ({ label, ...r }))
+      .sort((a, b) => b.interest - a.interest)
+  }, [oppgaveSlots])
 
   if (eventsLoading) return <p className="text-ink-600">Laster …</p>
   if (!selectedEvent) {
@@ -225,49 +226,28 @@ export default function Dashboard() {
             )}
           </Card>
 
-          <Card className="mb-6">
-            <h2 className="mb-1 text-lg font-semibold text-green-900">Vaktfase-oversikt</h2>
-            <p className="mb-4 text-sm text-ink-600">
-              Interesse (oppgaver krysset av ved påmelding) mot faktiske påmeldinger og tildelinger, gruppert per
-              vakt-fase — for hele {selectedEvent.title}, uavhengig av datoen valgt over. En bruker teller som
-              interessert i en fase dersom minst én av oppgavene de har krysset av gjelder for den fasen (samme
-              regel som håndheves ved påmelding).
-            </p>
-            <div style={{ height: 200 }}>
-              <Bar
-                data={{
-                  labels: phaseRows.map((r) => r.label),
-                  datasets: [
-                    { label: 'Interesserte', data: phaseRows.map((r) => r.interest), backgroundColor: '#8a836f', maxBarThickness: 32 },
-                    { label: 'Påmeldt vakt', data: phaseRows.map((r) => r.signups), backgroundColor: '#c99a3d', maxBarThickness: 32 },
-                    { label: 'Tildelt', data: phaseRows.map((r) => r.assigned), backgroundColor: '#1b4332', maxBarThickness: 32 },
-                  ],
-                }}
-                options={{
-                  indexAxis: 'y',
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
-                }}
-              />
-            </div>
-          </Card>
-
-          {skillCounts.length > 0 && (
+          {skillRows.length > 0 && (
             <Card>
               <h2 className="mb-1 text-lg font-semibold text-green-900">Interesse per oppgave</h2>
               <p className="mb-4 text-sm text-ink-600">
-                Hvor mange frivillige har krysset av for hver oppgave. Én person kan telle i flere søyler.
+                Påmeldt interesse mot faktisk tildelt, summert per oppgave på tvers av alle vakter i{' '}
+                {selectedEvent.title} — uavhengig av datoen valgt over.
               </p>
-              <div style={{ height: Math.min(Math.max(skillCounts.length * 36 + 24, 120), 480) }}>
+              <div style={{ height: Math.min(Math.max(skillRows.length * 36 + 24, 120), 480) }}>
                 <Bar
                   data={{
-                    labels: skillCounts.map(([name]) => name),
+                    labels: skillRows.map((r) => r.label),
                     datasets: [
                       {
                         label: 'Interesserte',
-                        data: skillCounts.map(([, count]) => count),
+                        data: skillRows.map((r) => r.interest),
                         backgroundColor: '#c99a3d',
+                        maxBarThickness: 28,
+                      },
+                      {
+                        label: 'Tildelt',
+                        data: skillRows.map((r) => r.assigned),
+                        backgroundColor: '#1b4332',
                         maxBarThickness: 28,
                       },
                     ],
@@ -276,7 +256,6 @@ export default function Dashboard() {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
                     scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
                   }}
                 />

@@ -7,6 +7,7 @@ import type {
   Membership,
   MembershipRole,
   OppgaveHistoryEntry,
+  OppgaveSlot,
   PoolEntry,
   Shift,
   ShiftConflict,
@@ -190,6 +191,15 @@ export const api = {
     }),
   deleteShiftConflict: (id: number) => request<void>(`/api/shift-conflicts/${id}/`, { method: 'DELETE' }),
 
+  oppgaveSlots: (params: { event?: number; shift?: number }) =>
+    request<OppgaveSlot[]>('/api/oppgave-slots/', { params }),
+  createOppgaveSlot: (shiftId: number, skillId: number, capacity: number | null) =>
+    request<OppgaveSlot>('/api/oppgave-slots/', {
+      method: 'POST',
+      body: { shift: shiftId, skill: skillId, capacity },
+    }),
+  deleteOppgaveSlot: (id: number) => request<void>(`/api/oppgave-slots/${id}/`, { method: 'DELETE' }),
+
   skills: () => request<Skill[]>('/api/skills/'),
   createSkill: (data: Partial<Skill>) => request<Skill>('/api/skills/', { method: 'POST', body: data }),
   updateSkill: (id: number, data: Partial<Skill>) =>
@@ -234,10 +244,10 @@ export const api = {
 
   pool: (eventId: number, date?: string) =>
     request<PoolEntry[]>(`/api/events/${eventId}/pool/`, { params: { date } }),
-  assign: (eventId: number, userId: number, shiftId: number) =>
+  assign: (eventId: number, userId: number, oppgaveSlotId: number) =>
     request<Assignment>(`/api/events/${eventId}/assign/`, {
       method: 'POST',
-      body: { user_id: userId, shift_id: shiftId },
+      body: { user_id: userId, oppgave_slot_id: oppgaveSlotId },
     }),
   checkinByCode: (eventId: number, userCode: string) =>
     request<{ status: string; message: string; user: User }>(`/api/events/${eventId}/checkin/`, {
