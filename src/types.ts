@@ -18,6 +18,11 @@ export interface User {
   phone?: string | null
   address?: string
   birthdate?: string | null
+  about?: string
+  // Derived from real Assignment history (checked in and placed in an
+  // oppgave), not self-reported -- only present via MeSerializer, same
+  // scoping as the other optional fields above.
+  participation_years?: string[]
 }
 
 export type ViewerRole = 'owner' | 'admin' | 'checkin_staff' | 'shift_leader' | 'volunteer' | null
@@ -51,6 +56,11 @@ export interface Shift {
   capacity: number | null
   min_capacity: number | null
   criticality: Criticality
+  // The vakt's number, if it's one of the main numbered vakter (e.g. 5
+  // for "Vakt 5") -- used for the X1 vaktleder eligibility rule (>=2 of
+  // vakt 5-10). null for non-numbered vakter (lettered prep/teardown
+  // ones, etc.).
+  vakt_number: number | null
   is_critical: boolean
   is_understaffed: boolean
   created_by: User
@@ -82,6 +92,13 @@ export interface OppgaveSlot {
   signup_count: number
   assigned_count: number
   is_full: boolean
+}
+
+export interface X1Signup {
+  id: number
+  event: number
+  user: number
+  created_at: string
 }
 
 export type MembershipRole = 'owner' | 'admin' | 'checkin_staff'

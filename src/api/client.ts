@@ -13,6 +13,7 @@ import type {
   ShiftConflict,
   Skill,
   User,
+  X1Signup,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string
@@ -199,6 +200,8 @@ export const api = {
       body: { shift: shiftId, skill: skillId, capacity },
     }),
   deleteOppgaveSlot: (id: number) => request<void>(`/api/oppgave-slots/${id}/`, { method: 'DELETE' }),
+
+  x1Signups: (params: { event?: number }) => request<X1Signup[]>('/api/x1-signups/', { params }),
 
   skills: () => request<Skill[]>('/api/skills/'),
   createSkill: (data: Partial<Skill>) => request<Skill>('/api/skills/', { method: 'POST', body: data }),

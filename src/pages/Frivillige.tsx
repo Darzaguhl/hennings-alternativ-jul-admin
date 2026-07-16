@@ -14,24 +14,36 @@ export default function Frivillige() {
   const { selectedEvent } = useEvents()
   const [users, setUsers] = useState<User[]>([])
   const [shifts, setShifts] = useState<Shift[]>([])
+  const [x1UserIds, setX1UserIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [search, setSearch] = useState('')
   const [vaktFilter, setVaktFilter] = useState('')
 
+  const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
+
   useEffect(() => {
     if (!selectedEvent) return
     setLoading(true)
     setError('')
-    Promise.all([api.users(), api.shifts(selectedEvent.id)])
-      .then(([u, s]) => {
+    Promise.all([
+      api.users(),
+      api.shifts(selectedEvent.id),
+      // X1SignupViewSet scopes non-admins to their own signups only, so
+      // fetching it for a plain checkin_staff/shift_leader viewer would
+      // silently show an incomplete (near-empty) picture -- only ask for
+      // it when the viewer can actually see everyone's.
+      isAdmin ? api.x1Signups({ event: selectedEvent.id }) : Promise.resolve([]),
+    ])
+      .then(([u, s, x1]) => {
         setUsers(u)
         setShifts(s)
+        setX1UserIds(new Set(x1.map((signup) => signup.user)))
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Kunne ikke laste frivillige.'))
       .finally(() => setLoading(false))
-  }, [selectedEvent])
+  }, [selectedEvent, isAdmin])
 
   const signupsByUser = useMemo(() => {
     const map = new Map<number, Shift[]>()
@@ -57,9 +69,9 @@ export default function Frivillige() {
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
   const role = selectedEvent.viewer_role
-  const canView = hasAdminAccess(role) || role === 'checkin_staff' || role === 'shift_leader'
-  const canSeeNotes = hasAdminAccess(role)
-  const canDelete = hasAdminAccess(role)
+  const canView = isAdmin || role === 'checkin_staff' || role === 'shift_leader'
+  const canSeeNotes = isAdmin
+  const canDelete = isAdmin
 
   const handleDelete = async (user: User) => {
     const name = displayName(user)
@@ -124,6 +136,7 @@ export default function Frivillige() {
               key={u.id}
               user={u}
               shifts={signupsByUser.get(u.id) ?? []}
+              wantsX1={x1UserIds.has(u.id)}
               canSeeNotes={canSeeNotes}
               canDelete={canDelete}
               onDelete={handleDelete}
@@ -139,12 +152,14 @@ export default function Frivillige() {
 function VolunteerCard({
   user,
   shifts,
+  wantsX1,
   canSeeNotes,
   canDelete,
   onDelete,
 }: {
   user: User
   shifts: Shift[]
+  wantsX1: boolean
   canSeeNotes: boolean
   canDelete: boolean
   onDelete: (user: User) => void
@@ -186,13 +201,17 @@ function VolunteerCard({
     <Card className="!p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <p className="font-medium text-ink-900">{displayName(user)}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium text-ink-900">{displayName(user)}</p>
+            {wantsX1 && <Badge tone="warning">Ønsker X1</Badge>}
+          </div>
           {displayName(user) !== user.email && <p className="text-xs text-ink-400">{user.email}</p>}
           {(user.phone || user.address || user.birthdate) && (
             <p className="mt-0.5 text-xs text-ink-600">
               {[user.phone, user.address, user.birthdate].filter(Boolean).join(' · ')}
             </p>
           )}
+          {user.about && <p className="mt-0.5 text-xs italic text-ink-600">«{user.about}»</p>}
           <div className="mt-2">
             {shifts.length === 0 ? (
               <p className="text-sm text-ink-400">Ikke meldt på noen vakt ennå.</p>

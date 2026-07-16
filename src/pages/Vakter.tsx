@@ -13,6 +13,7 @@ interface ShiftFormState {
   capacity: string
   min_capacity: string
   criticality: Criticality
+  vakt_number: string
   leader_ids: number[]
 }
 
@@ -24,6 +25,7 @@ const emptyForm: ShiftFormState = {
   capacity: '',
   min_capacity: '',
   criticality: 'normal',
+  vakt_number: '',
   leader_ids: [],
 }
 
@@ -35,6 +37,7 @@ const toFormState = (shift: Shift): ShiftFormState => ({
   capacity: shift.capacity?.toString() ?? '',
   min_capacity: shift.min_capacity?.toString() ?? '',
   criticality: shift.criticality,
+  vakt_number: shift.vakt_number?.toString() ?? '',
   leader_ids: shift.leaders.map((l) => l.id),
 })
 
@@ -171,6 +174,7 @@ export default function Vakter() {
       capacity: form.capacity === '' ? null : Number(form.capacity),
       min_capacity: form.min_capacity === '' ? null : Number(form.min_capacity),
       criticality: form.criticality,
+      vakt_number: form.vakt_number === '' ? null : Number(form.vakt_number),
       ...(isAdmin ? { leader_ids: form.leader_ids } : {}),
     }
     try {
@@ -220,6 +224,7 @@ export default function Vakter() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-ink-900">{shift.title}</span>
+                    {shift.vakt_number !== null && <Badge tone="neutral">#{shift.vakt_number}</Badge>}
                     {shift.criticality === 'critical' && <Badge tone="critical">Krever erfaring</Badge>}
                     {shift.is_understaffed && <Badge tone="warning">Underbemannet</Badge>}
                     {shift.is_full && <Badge tone="success">Fullt</Badge>}
@@ -370,6 +375,19 @@ export default function Vakter() {
                     <option value="critical">Ja</option>
                   </Select>
                 </div>
+              </div>
+              <div>
+                <Label>Vaktnummer (for X1, vakt 5–10)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Kun for nummererte vakter"
+                  value={form.vakt_number}
+                  onChange={(e) => setForm({ ...form, vakt_number: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-ink-400">
+                  Brukes til å avgjøre om vakten teller som «vakt 5–10» for vaktleder-kravet (X1).
+                </p>
               </div>
               {isAdmin && editingId !== 'new' && (
                 <div className="rounded-lg border border-cream-200 p-3">
