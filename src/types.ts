@@ -60,6 +60,15 @@ export interface Shift {
   is_full: boolean
 }
 
+export interface ShiftConflict {
+  id: number
+  event: number
+  shift_a: number
+  shift_b: number
+  shift_a_title: string
+  shift_b_title: string
+}
+
 export type MembershipRole = 'owner' | 'admin' | 'checkin_staff'
 
 export interface Membership {

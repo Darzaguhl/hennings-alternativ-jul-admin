@@ -9,6 +9,7 @@ import type {
   OppgaveHistoryEntry,
   PoolEntry,
   Shift,
+  ShiftConflict,
   Skill,
   User,
 } from '../types'
@@ -179,6 +180,15 @@ export const api = {
     request<Shift>(`/api/shifts/${id}/`, { method: 'PATCH', body: data }),
   deleteShift: (id: number) => request<void>(`/api/shifts/${id}/`, { method: 'DELETE' }),
   shiftAssignments: (id: number) => request<Assignment[]>(`/api/shifts/${id}/assignments/`),
+
+  shiftConflicts: (eventId: number) =>
+    request<ShiftConflict[]>('/api/shift-conflicts/', { params: { event: eventId } }),
+  createShiftConflict: (eventId: number, shiftAId: number, shiftBId: number) =>
+    request<ShiftConflict>('/api/shift-conflicts/', {
+      method: 'POST',
+      body: { event: eventId, shift_a: shiftAId, shift_b: shiftBId },
+    }),
+  deleteShiftConflict: (id: number) => request<void>(`/api/shift-conflicts/${id}/`, { method: 'DELETE' }),
 
   skills: () => request<Skill[]>('/api/skills/'),
   createSkill: (data: Partial<Skill>) => request<Skill>('/api/skills/', { method: 'POST', body: data }),
