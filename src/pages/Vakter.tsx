@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
-import type { Criticality, Phase, Shift, ShiftConflict, User } from '../types'
+import type { Criticality, OppgaveSlot, Shift, ShiftConflict, Skill, User } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
 import { hasAdminAccess } from '../utils/roles'
-
-const phaseLabels: Record<Phase, string> = {
-  setup: 'Forberedelse',
-  guest: 'Gjester til stede',
-  teardown: 'Rydding',
-  '': 'Ikke satt',
-}
 
 interface ShiftFormState {
   title: string
@@ -20,7 +13,6 @@ interface ShiftFormState {
   capacity: string
   min_capacity: string
   criticality: Criticality
-  phase: Phase
   leader_ids: number[]
 }
 
@@ -32,7 +24,6 @@ const emptyForm: ShiftFormState = {
   capacity: '',
   min_capacity: '',
   criticality: 'normal',
-  phase: '',
   leader_ids: [],
 }
 
@@ -44,7 +35,6 @@ const toFormState = (shift: Shift): ShiftFormState => ({
   capacity: shift.capacity?.toString() ?? '',
   min_capacity: shift.min_capacity?.toString() ?? '',
   criticality: shift.criticality,
-  phase: shift.phase,
   leader_ids: shift.leaders.map((l) => l.id),
 })
 
@@ -53,6 +43,7 @@ export default function Vakter() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [conflicts, setConflicts] = useState<ShiftConflict[]>([])
+  const [skills, setSkills] = useState<Skill[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
@@ -61,6 +52,11 @@ export default function Vakter() {
   const [newConflictA, setNewConflictA] = useState('')
   const [newConflictB, setNewConflictB] = useState('')
   const [conflictSaving, setConflictSaving] = useState(false)
+  const [slots, setSlots] = useState<OppgaveSlot[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [newSlotSkill, setNewSlotSkill] = useState('')
+  const [newSlotCapacity, setNewSlotCapacity] = useState('')
+  const [slotSaving, setSlotSaving] = useState(false)
 
   const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
 
@@ -72,17 +68,54 @@ export default function Vakter() {
       api.shifts(selectedEvent.id),
       isAdmin ? api.users() : Promise.resolve([]),
       isAdmin ? api.shiftConflicts(selectedEvent.id) : Promise.resolve([]),
+      isAdmin ? api.skills() : Promise.resolve([]),
     ])
-      .then(([s, u, c]) => {
+      .then(([s, u, c, sk]) => {
         setShifts([...s].sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time)))
         setUsers(u)
         setConflicts(c)
+        setSkills(sk)
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Kunne ikke laste vakter.'))
       .finally(() => setLoading(false))
   }
 
   useEffect(load, [selectedEvent, isAdmin])
+
+  const loadSlots = (shiftId: number) => {
+    setSlotsLoading(true)
+    api
+      .oppgaveSlots({ shift: shiftId })
+      .then(setSlots)
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Kunne ikke laste oppgaver for vakten.'))
+      .finally(() => setSlotsLoading(false))
+  }
+
+  const handleAddSlot = async () => {
+    if (editingId === 'new' || editingId === null || !newSlotSkill) return
+    setSlotSaving(true)
+    setError('')
+    try {
+      await api.createOppgaveSlot(editingId, Number(newSlotSkill), newSlotCapacity === '' ? null : Number(newSlotCapacity))
+      setNewSlotSkill('')
+      setNewSlotCapacity('')
+      loadSlots(editingId)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Kunne ikke legge til oppgaven.')
+    } finally {
+      setSlotSaving(false)
+    }
+  }
+
+  const handleDeleteSlot = async (slot: OppgaveSlot) => {
+    if (!confirm(`Fjerne oppgaven «${slot.skill_name}» fra denne vakten?`)) return
+    try {
+      await api.deleteOppgaveSlot(slot.id)
+      setSlots((prev) => prev.filter((s) => s.id !== slot.id))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Kunne ikke fjerne oppgaven.')
+    }
+  }
 
   const handleAddConflict = async () => {
     if (!selectedEvent || !newConflictA || !newConflictB || newConflictA === newConflictB) return
@@ -112,12 +145,16 @@ export default function Vakter() {
 
   const openCreate = () => {
     setForm(emptyForm)
+    setSlots([])
     setEditingId('new')
   }
 
   const openEdit = (shift: Shift) => {
     setForm(toFormState(shift))
     setEditingId(shift.id)
+    setNewSlotSkill('')
+    setNewSlotCapacity('')
+    loadSlots(shift.id)
   }
 
   const closeForm = () => setEditingId(null)
@@ -134,7 +171,6 @@ export default function Vakter() {
       capacity: form.capacity === '' ? null : Number(form.capacity),
       min_capacity: form.min_capacity === '' ? null : Number(form.min_capacity),
       criticality: form.criticality,
-      phase: form.phase,
       ...(isAdmin ? { leader_ids: form.leader_ids } : {}),
     }
     try {
@@ -184,7 +220,6 @@ export default function Vakter() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-ink-900">{shift.title}</span>
-                    {shift.phase && <Badge tone="neutral">{phaseLabels[shift.phase]}</Badge>}
                     {shift.criticality === 'critical' && <Badge tone="critical">Krever erfaring</Badge>}
                     {shift.is_understaffed && <Badge tone="warning">Underbemannet</Badge>}
                     {shift.is_full && <Badge tone="success">Fullt</Badge>}
@@ -336,18 +371,70 @@ export default function Vakter() {
                   </Select>
                 </div>
               </div>
-              <div>
-                <Label>Fase</Label>
-                <Select value={form.phase} onChange={(e) => setForm({ ...form, phase: e.target.value as Phase })}>
-                  <option value="">Ikke satt</option>
-                  <option value="setup">Forberedelse</option>
-                  <option value="guest">Gjester til stede</option>
-                  <option value="teardown">Rydding</option>
-                </Select>
-                <p className="mt-1 text-xs text-ink-400">
-                  Avgjør hvilke oppgaver som kan velges for denne vakten — se Oppgaver.
-                </p>
-              </div>
+              {isAdmin && editingId !== 'new' && (
+                <div className="rounded-lg border border-cream-200 p-3">
+                  <Label>Oppgaver for denne vakten</Label>
+                  {slotsLoading ? (
+                    <p className="text-sm text-ink-600">Laster …</p>
+                  ) : (
+                    <>
+                      {slots.length > 0 && (
+                        <div className="mb-3 flex flex-col gap-1.5">
+                          {slots.map((slot) => (
+                            <div key={slot.id} className="flex items-center justify-between rounded-lg bg-cream-50 px-3 py-2">
+                              <span className="text-sm text-ink-900">
+                                {slot.skill_name}
+                                <span className="ml-2 text-xs text-ink-600">
+                                  {slot.assigned_count}
+                                  {slot.capacity !== null ? `/${slot.capacity}` : ''} tildelt · {slot.signup_count} interesserte
+                                </span>
+                              </span>
+                              <Button
+                                variant="danger"
+                                onClick={() => handleDeleteSlot(slot)}
+                                className="!px-3 !py-1.5 !text-xs"
+                              >
+                                Slett
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {slots.length === 0 && (
+                        <p className="mb-3 text-sm text-ink-600">Ingen oppgaver lagt til for denne vakten ennå.</p>
+                      )}
+                      <div className="grid grid-cols-[1fr_auto_auto] items-end gap-2">
+                        <div>
+                          <Label>Oppgave</Label>
+                          <Select value={newSlotSkill} onChange={(e) => setNewSlotSkill(e.target.value)}>
+                            <option value="">Velg oppgave</option>
+                            {skills
+                              .filter((sk) => !slots.some((s) => s.skill === sk.id))
+                              .map((sk) => (
+                                <option key={sk.id} value={sk.id}>
+                                  {sk.name}
+                                </option>
+                              ))}
+                          </Select>
+                        </div>
+                        <div className="w-28">
+                          <Label>Kapasitet</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="Ubegrenset"
+                            value={newSlotCapacity}
+                            onChange={(e) => setNewSlotCapacity(e.target.value)}
+                          />
+                        </div>
+                        <Button onClick={handleAddSlot} disabled={slotSaving || !newSlotSkill} className="!px-3 !py-2 !text-xs">
+                          {slotSaving ? 'Legger til …' : 'Legg til'}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               {isAdmin && (
                 <div>
                   <Label>Ledere for denne vakten</Label>

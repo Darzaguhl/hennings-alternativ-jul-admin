@@ -18,7 +18,6 @@ export default function Frivillige() {
   const [error, setError] = useState('')
 
   const [search, setSearch] = useState('')
-  const [skillFilter, setSkillFilter] = useState('')
   const [vaktFilter, setVaktFilter] = useState('')
 
   useEffect(() => {
@@ -46,21 +45,11 @@ export default function Frivillige() {
     return map
   }, [shifts])
 
-  const allSkills = useMemo(() => {
-    const names = new Set<string>()
-    users.forEach((u) => u.skills.forEach((s) => names.add(s.name)))
-    return Array.from(names).sort()
-  }, [users])
-
-  const volunteers = useMemo(
-    () => users.filter((u) => signupsByUser.has(u.id) || u.skills.length > 0),
-    [users, signupsByUser]
-  )
+  const volunteers = useMemo(() => users.filter((u) => signupsByUser.has(u.id)), [users, signupsByUser])
 
   const filtered = volunteers.filter((u) => {
     const term = search.trim().toLowerCase()
     if (term && !u.email.toLowerCase().includes(term) && !displayName(u).toLowerCase().includes(term)) return false
-    if (skillFilter && !u.skills.some((s) => s.name === skillFilter)) return false
     if (vaktFilter && !(signupsByUser.get(u.id) ?? []).some((s) => String(s.id) === vaktFilter)) return false
     return true
   })
@@ -101,27 +90,16 @@ export default function Frivillige() {
     <div>
       <PageHeader
         title="Frivillige"
-        subtitle={`${volunteers.length} som har meldt interesse eller meldt seg på en vakt i ${selectedEvent.title}`}
+        subtitle={`${volunteers.length} som har meldt seg på en vakt i ${selectedEvent.title}`}
       />
 
       <ErrorText>{error}</ErrorText>
 
       <Card className="mb-6">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Søk på navn/e-post</Label>
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Navn eller navn@epost.no" />
-          </div>
-          <div>
-            <Label>Oppgave</Label>
-            <Select value={skillFilter} onChange={(e) => setSkillFilter(e.target.value)}>
-              <option value="">Alle oppgaver</option>
-              {allSkills.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </Select>
           </div>
           <div>
             <Label>Vakt</Label>
@@ -210,15 +188,6 @@ function VolunteerCard({
         <div className="flex-1">
           <p className="font-medium text-ink-900">{displayName(user)}</p>
           {displayName(user) !== user.email && <p className="text-xs text-ink-400">{user.email}</p>}
-          {user.skills.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {user.skills.map((s) => (
-                <Badge key={s.id} tone="warning">
-                  {s.name}
-                </Badge>
-              ))}
-            </div>
-          )}
           <div className="mt-2">
             {shifts.length === 0 ? (
               <p className="text-sm text-ink-400">Ikke meldt på noen vakt ennå.</p>

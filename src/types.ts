@@ -1,9 +1,6 @@
 export interface Skill {
   id: number
   name: string
-  allowed_in_setup: boolean
-  allowed_in_guest: boolean
-  allowed_in_teardown: boolean
 }
 
 export interface User {
@@ -12,7 +9,6 @@ export interface User {
   email: string
   first_name: string
   last_name: string
-  skills: Skill[]
   experience_notes: string
 }
 
@@ -36,7 +32,6 @@ export interface Event {
 }
 
 export type Criticality = 'normal' | 'critical'
-export type Phase = 'setup' | 'guest' | 'teardown' | ''
 
 export interface Shift {
   id: number
@@ -48,7 +43,6 @@ export interface Shift {
   capacity: number | null
   min_capacity: number | null
   criticality: Criticality
-  phase: Phase
   is_critical: boolean
   is_understaffed: boolean
   created_by: User
@@ -67,6 +61,19 @@ export interface ShiftConflict {
   shift_b: number
   shift_a_title: string
   shift_b_title: string
+}
+
+export interface OppgaveSlot {
+  id: number
+  event: number
+  shift: number
+  shift_title: string
+  skill: number
+  skill_name: string
+  capacity: number | null
+  signup_count: number
+  assigned_count: number
+  is_full: boolean
 }
 
 export type MembershipRole = 'owner' | 'admin' | 'checkin_staff'
@@ -101,6 +108,7 @@ export interface InvitePreview {
 export interface ShiftSignup {
   id: number
   shift: Shift
+  oppgave_slot: OppgaveSlot
   user: User
   has_relevant_experience: boolean | null
   experience_notes: string
@@ -110,6 +118,7 @@ export interface ShiftSignup {
 export interface Assignment {
   id: number
   shift: Shift
+  oppgave_slot: OppgaveSlot
   user: User
   confirmed_by: User
   confirmed_at: string
@@ -119,7 +128,7 @@ export interface PoolEntry {
   user: User
   checked_in_at: string
   candidates: ShiftSignup[]
-  suggested_shift: Shift | null
+  suggested_oppgave_slot: OppgaveSlot | null
 }
 
 export interface ShiftMetric {
