@@ -70,6 +70,36 @@ const formatDate = (isoDate: string) => {
   return parsed.toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })
 }
 
+// Native <input type="date">/<input type="time"> always *store* a
+// locale-independent value (YYYY-MM-DD / HH:MM), but Chrome's *displayed*
+// digit order and 12h/24h format follow the browser's own UI language
+// setting, not this page's lang attribute or anything the app controls --
+// a visitor with their browser set to English sees MM/DD/YYYY and AM/PM
+// regardless. Plain text inputs with our own parsing sidestep that, at
+// the cost of the native calendar/scroll widgets.
+const isoToDisplayDate = (iso: string) => {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}.${m}.${y}`
+}
+
+const displayToIsoDate = (display: string): string | null => {
+  const match = display.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+  if (!match) return null
+  const [, d, m, y] = match
+  const day = Number(d)
+  const month = Number(m)
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+}
+
+const isValidDisplayTime = (display: string) => {
+  const match = display.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return false
+  const [, h, m] = match
+  return Number(h) >= 0 && Number(h) <= 23 && Number(m) >= 0 && Number(m) <= 59
+}
+
 export default function Vakter() {
   const { selectedEvent } = useEvents()
   const [shifts, setShifts] = useState<Shift[]>([])
@@ -90,6 +120,9 @@ export default function Vakter() {
   const [leaderSearch, setLeaderSearch] = useState('')
   const [newSlotCapacity, setNewSlotCapacity] = useState('')
   const [slotSaving, setSlotSaving] = useState(false)
+  const [dateText, setDateText] = useState('')
+  const [editingSlotId, setEditingSlotId] = useState<number | null>(null)
+  const [editingSlotCapacity, setEditingSlotCapacity] = useState('')
 
   const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
 
@@ -150,6 +183,33 @@ export default function Vakter() {
     }
   }
 
+  const startEditSlot = (slot: OppgaveSlot) => {
+    setEditingSlotId(slot.id)
+    setEditingSlotCapacity(slot.capacity?.toString() ?? '')
+  }
+
+  const cancelEditSlot = () => {
+    setEditingSlotId(null)
+    setEditingSlotCapacity('')
+  }
+
+  const handleUpdateSlotCapacity = async (slot: OppgaveSlot) => {
+    setSlotSaving(true)
+    setError('')
+    try {
+      const updated = await api.updateOppgaveSlot(
+        slot.id,
+        editingSlotCapacity === '' ? null : Number(editingSlotCapacity)
+      )
+      setSlots((prev) => prev.map((s) => (s.id === slot.id ? updated : s)))
+      cancelEditSlot()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Kunne ikke oppdatere oppgaven.')
+    } finally {
+      setSlotSaving(false)
+    }
+  }
+
   const handleAddConflict = async () => {
     if (!selectedEvent || !newConflictA || !newConflictB || newConflictA === newConflictB) return
     setConflictSaving(true)
@@ -180,6 +240,8 @@ export default function Vakter() {
     setForm(emptyForm)
     setSlots([])
     setLeaderSearch('')
+    setDateText('')
+    setEditingSlotId(null)
     setEditingId('new')
   }
 
@@ -189,6 +251,8 @@ export default function Vakter() {
     setNewSlotSkill('')
     setNewSlotCapacity('')
     setLeaderSearch('')
+    setDateText(isoToDisplayDate(shift.date))
+    setEditingSlotId(null)
     loadSlots(shift.id)
   }
 
@@ -196,6 +260,10 @@ export default function Vakter() {
 
   const handleSubmit = async () => {
     if (!selectedEvent) return
+    if (!isValidDisplayTime(form.start_time) || !isValidDisplayTime(form.end_time)) {
+      setError('Fra/til må være på formatet TT:MM, f.eks. 13:00.')
+      return
+    }
     setSaving(true)
     setError('')
     const payload = {
@@ -376,12 +444,38 @@ export default function Vakter() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Dato</Label>
-                  <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  {/* Plain text, not <input type="date"> -- the native
+                      widget's displayed digit order/format follows the
+                      visitor's browser language, not this app's, so an
+                      English-language browser shows MM/DD/YYYY no matter
+                      what. Typing is parsed on every keystroke once it
+                      matches DD.MM.ÅÅÅÅ; an incomplete/invalid value just
+                      doesn't update form.date yet, and blur snaps the text
+                      back to the last valid value instead of leaving
+                      something unparseable in the field. */}
+                  <Input
+                    type="text"
+                    placeholder="DD.MM.ÅÅÅÅ"
+                    value={dateText}
+                    onChange={(e) => {
+                      const text = e.target.value
+                      setDateText(text)
+                      const iso = displayToIsoDate(text)
+                      if (iso) setForm((f) => ({ ...f, date: iso }))
+                    }}
+                    onBlur={() => setDateText(isoToDisplayDate(form.date))}
+                  />
                 </div>
                 <div>
                   <Label>Fra</Label>
+                  {/* Same reasoning as Dato -- <input type="time"> shows
+                      12h AM/PM for an English-language browser even though
+                      its underlying value is always 24h HH:MM already, so
+                      a plain text field displaying that value directly
+                      avoids the locale mismatch without needing reformatting. */}
                   <Input
-                    type="time"
+                    type="text"
+                    placeholder="TT:MM"
                     value={form.start_time}
                     onChange={(e) => setForm({ ...form, start_time: e.target.value })}
                   />
@@ -389,7 +483,8 @@ export default function Vakter() {
                 <div>
                   <Label>Til</Label>
                   <Input
-                    type="time"
+                    type="text"
+                    placeholder="TT:MM"
                     value={form.end_time}
                     onChange={(e) => setForm({ ...form, end_time: e.target.value })}
                   />
@@ -401,6 +496,7 @@ export default function Vakter() {
                   <Input
                     type="number"
                     min={0}
+                    placeholder="Ubegrenset"
                     value={form.capacity}
                     onChange={(e) => setForm({ ...form, capacity: e.target.value })}
                   />
@@ -410,6 +506,7 @@ export default function Vakter() {
                   <Input
                     type="number"
                     min={0}
+                    placeholder="Ingen krav"
                     value={form.min_capacity}
                     onChange={(e) => setForm({ ...form, min_capacity: e.target.value })}
                   />
@@ -449,20 +546,62 @@ export default function Vakter() {
                         <div className="mb-3 flex flex-col gap-1.5">
                           {slots.map((slot) => (
                             <div key={slot.id} className="flex items-center justify-between rounded-lg bg-cream-50 px-3 py-2">
-                              <span className="text-sm text-ink-900">
+                              <span className="flex flex-wrap items-center text-sm text-ink-900">
                                 {slot.skill_name}
-                                <span className="ml-2 text-xs text-ink-600">
-                                  {slot.assigned_count}
-                                  {slot.capacity !== null ? `/${slot.capacity}` : ''} tildelt · {slot.signup_count} interesserte
-                                </span>
+                                {editingSlotId === slot.id ? (
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    placeholder="Ubegrenset"
+                                    value={editingSlotCapacity}
+                                    onChange={(e) => setEditingSlotCapacity(e.target.value)}
+                                    className="ml-2 w-24 rounded-md border border-cream-200 px-2 py-0.5 text-xs"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <span className="ml-2 text-xs text-ink-600">
+                                    {slot.assigned_count}
+                                    {slot.capacity !== null ? `/${slot.capacity}` : ''} tildelt · {slot.signup_count} interesserte
+                                  </span>
+                                )}
                               </span>
-                              <Button
-                                variant="danger"
-                                onClick={() => handleDeleteSlot(slot)}
-                                className="!px-3 !py-1.5 !text-xs"
-                              >
-                                Slett
-                              </Button>
+                              <div className="flex flex-shrink-0 gap-1.5">
+                                {editingSlotId === slot.id ? (
+                                  <>
+                                    <Button
+                                      variant="secondary"
+                                      onClick={cancelEditSlot}
+                                      className="!px-3 !py-1.5 !text-xs"
+                                    >
+                                      Avbryt
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleUpdateSlotCapacity(slot)}
+                                      disabled={slotSaving}
+                                      className="!px-3 !py-1.5 !text-xs"
+                                    >
+                                      {slotSaving ? 'Lagrer …' : 'Lagre'}
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      variant="secondary"
+                                      onClick={() => startEditSlot(slot)}
+                                      className="!px-3 !py-1.5 !text-xs"
+                                    >
+                                      Rediger
+                                    </Button>
+                                    <Button
+                                      variant="danger"
+                                      onClick={() => handleDeleteSlot(slot)}
+                                      className="!px-3 !py-1.5 !text-xs"
+                                    >
+                                      Slett
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
