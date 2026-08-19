@@ -54,14 +54,14 @@ export default function Layout() {
               Frivillige
             </NavLink>
           )}
+          {/* Innsjekk and Pool & tildeling are tabs on the same page now.
+              canSeeInnsjekk is always a subset of canSeePool (shift_leader
+              sees Pool only; checkin_staff/admin see both), so this one
+              link covers everyone who could reach either tab -- the page
+              itself decides which tab(s) to actually show/default to. */}
           {canSeePool && (
-            <NavLink to="/pool" className={navItemClass}>
-              Pool &amp; tildeling
-            </NavLink>
-          )}
-          {canSeeInnsjekk && (
             <NavLink to="/innsjekk" className={navItemClass}>
-              Innsjekk
+              {canSeeInnsjekk ? 'Innsjekk & pool' : 'Pool & tildeling'}
             </NavLink>
           )}
           {canSeeRoller && (
