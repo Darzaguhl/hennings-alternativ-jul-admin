@@ -199,6 +199,8 @@ export const api = {
       method: 'POST',
       body: { shift: shiftId, skill: skillId, capacity },
     }),
+  updateOppgaveSlot: (id: number, capacity: number | null) =>
+    request<OppgaveSlot>(`/api/oppgave-slots/${id}/`, { method: 'PATCH', body: { capacity } }),
   deleteOppgaveSlot: (id: number) => request<void>(`/api/oppgave-slots/${id}/`, { method: 'DELETE' }),
 
   x1Signups: (params: { event?: number }) => request<X1Signup[]>('/api/x1-signups/', { params }),
