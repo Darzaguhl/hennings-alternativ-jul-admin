@@ -41,6 +41,35 @@ const toFormState = (shift: Shift): ShiftFormState => ({
   leader_ids: shift.leaders.map((l) => l.id),
 })
 
+// Mirrors the public website's VAKT_PHASES/phaseForShift (js/signup.js) --
+// purely a display grouping, not a backend concept, so a change to the
+// event's date ranges needs to be applied in both places to stay in sync.
+const VAKT_PHASES = [
+  { label: 'Oppsett', from: 20, to: 22 },
+  { label: 'Siste innspurt', from: 23, to: 23 },
+  { label: 'Julaften', from: 24, to: 24 },
+  { label: 'Juledagene', from: 25, to: 26 },
+  { label: 'Rydding & tilbakelevering', from: 27, to: 29 },
+]
+
+const phaseForShift = (shift: Shift) => {
+  const day = Number(shift.date.split('-')[2])
+  return VAKT_PHASES.find((p) => day >= p.from && day <= p.to)?.label ?? 'Andre vakter'
+}
+
+const groupShiftsByPhase = (shifts: Shift[]) => {
+  const labels = [...VAKT_PHASES.map((p) => p.label), 'Andre vakter']
+  return labels
+    .map((label) => ({ label, shifts: shifts.filter((s) => phaseForShift(s) === label) }))
+    .filter((group) => group.shifts.length > 0)
+}
+
+const formatDate = (isoDate: string) => {
+  const parsed = new Date(`${isoDate}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return isoDate
+  return parsed.toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })
+}
+
 export default function Vakter() {
   const { selectedEvent } = useEvents()
   const [shifts, setShifts] = useState<Shift[]>([])
@@ -217,39 +246,51 @@ export default function Vakter() {
       {loading ? (
         <p className="text-ink-600">Laster …</p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {shifts.map((shift) => (
-            <Card key={shift.id} className="!p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-ink-900">{shift.title}</span>
-                    {shift.vakt_number !== null && <Badge tone="neutral">#{shift.vakt_number}</Badge>}
-                    {shift.criticality === 'critical' && <Badge tone="critical">Krever erfaring</Badge>}
-                    {shift.is_understaffed && <Badge tone="warning">Underbemannet</Badge>}
-                    {shift.is_full && <Badge tone="success">Fullt</Badge>}
-                  </div>
-                  <p className="mt-0.5 text-sm text-ink-600">
-                    {shift.date} · {shift.start_time.slice(0, 5)}–{shift.end_time.slice(0, 5)} ·{' '}
-                    {shift.assigned_count}
-                    {shift.capacity !== null ? `/${shift.capacity}` : ''} tildelt · {shift.signup_count} interesserte
-                    {shift.leaders.length > 0 && <> · Ledere: {shift.leaders.map((l) => l.email).join(', ')}</>}
-                  </p>
-                </div>
-                {(isAdmin || shift.is_led_by_viewer) && (
-                  <div className="flex flex-shrink-0 gap-2">
-                    <Button variant="secondary" onClick={() => openEdit(shift)}>
-                      Rediger
-                    </Button>
-                    {isAdmin && (
-                      <Button variant="danger" onClick={() => handleDelete(shift)}>
-                        Slett
-                      </Button>
-                    )}
-                  </div>
-                )}
+        <div className="flex flex-col gap-6">
+          {groupShiftsByPhase(shifts).map((group) => (
+            <div key={group.label}>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gold-600">{group.label}</h3>
+              <div className="flex flex-col gap-2">
+                {group.shifts.map((shift) => (
+                  <Card key={shift.id} className="!p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-ink-900">{shift.title}</span>
+                          {shift.vakt_number !== null && <Badge tone="neutral">#{shift.vakt_number}</Badge>}
+                          {shift.criticality === 'critical' && <Badge tone="critical">Krever erfaring</Badge>}
+                          {shift.is_understaffed && <Badge tone="warning">Underbemannet</Badge>}
+                          {shift.is_full && <Badge tone="success">Fullt</Badge>}
+                        </div>
+                        <p className="mt-0.5 text-sm text-ink-600">
+                          {formatDate(shift.date)} · {shift.start_time.slice(0, 5)}–{shift.end_time.slice(0, 5)}
+                          {shift.leaders.length > 0 && <> · Ledere: {shift.leaders.map((l) => l.email).join(', ')}</>}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 text-right text-sm">
+                        <p className="font-medium text-ink-900">
+                          {shift.assigned_count}
+                          {shift.capacity !== null ? `/${shift.capacity}` : ''} tildelt
+                        </p>
+                        <p className="text-ink-600">{shift.signup_count} interesserte</p>
+                      </div>
+                      {(isAdmin || shift.is_led_by_viewer) && (
+                        <div className="flex flex-shrink-0 gap-2">
+                          <Button variant="secondary" onClick={() => openEdit(shift)}>
+                            Rediger
+                          </Button>
+                          {isAdmin && (
+                            <Button variant="danger" onClick={() => handleDelete(shift)}>
+                              Slett
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
               </div>
-            </Card>
+            </div>
           ))}
           {shifts.length === 0 && <p className="text-ink-600">Ingen vakter er lagt til ennå.</p>}
         </div>
@@ -315,11 +356,16 @@ export default function Vakter() {
 
       {editingId !== null && (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-ink-900/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-md">
-            <h2 className="mb-4 text-lg font-semibold text-green-900">
+          {/* flex-col + a scrollable middle section, with the heading and
+              Avbryt/Lagre footer pinned outside the scroll area -- a shift
+              with several oppgaver/ledere can easily be taller than the
+              viewport, and the save button must never end up unreachable
+              below the fold with no way to scroll to it. */}
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-md">
+            <h2 className="px-6 pt-6 text-lg font-semibold text-green-900">
               {editingId === 'new' ? 'Ny vakt' : 'Rediger vakt'}
             </h2>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 overflow-y-auto px-6 py-4">
               <div>
                 <Label>Tittel</Label>
                 <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -478,7 +524,7 @@ export default function Vakter() {
               )}
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="flex flex-shrink-0 justify-end gap-2 border-t border-cream-200 px-6 py-4">
               <Button variant="secondary" onClick={closeForm}>
                 Avbryt
               </Button>
