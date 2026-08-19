@@ -87,6 +87,7 @@ export default function Vakter() {
   const [slots, setSlots] = useState<OppgaveSlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [newSlotSkill, setNewSlotSkill] = useState('')
+  const [leaderSearch, setLeaderSearch] = useState('')
   const [newSlotCapacity, setNewSlotCapacity] = useState('')
   const [slotSaving, setSlotSaving] = useState(false)
 
@@ -178,6 +179,7 @@ export default function Vakter() {
   const openCreate = () => {
     setForm(emptyForm)
     setSlots([])
+    setLeaderSearch('')
     setEditingId('new')
   }
 
@@ -186,6 +188,7 @@ export default function Vakter() {
     setEditingId(shift.id)
     setNewSlotSkill('')
     setNewSlotCapacity('')
+    setLeaderSearch('')
     loadSlots(shift.id)
   }
 
@@ -502,24 +505,45 @@ export default function Vakter() {
               {isAdmin && (
                 <div>
                   <Label>Ledere for denne vakten</Label>
-                  <select
-                    multiple
-                    value={form.leader_ids.map(String)}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        leader_ids: Array.from(e.target.selectedOptions, (o) => Number(o.value)),
-                      })
-                    }
-                    className="h-28 w-full rounded-lg border border-cream-200 bg-white px-3 py-2 text-sm"
-                  >
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.email}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-ink-400">Cmd/Ctrl-klikk for å velge flere.</p>
+                  <Input
+                    type="text"
+                    placeholder="Søk på e-post …"
+                    value={leaderSearch}
+                    onChange={(e) => setLeaderSearch(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-lg border border-cream-200 bg-white p-1.5">
+                    {users
+                      .filter((u) => u.email.toLowerCase().includes(leaderSearch.trim().toLowerCase()))
+                      .map((u) => (
+                        <label
+                          key={u.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-cream-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.leader_ids.includes(u.id)}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                leader_ids: e.target.checked
+                                  ? [...form.leader_ids, u.id]
+                                  : form.leader_ids.filter((id) => id !== u.id),
+                              })
+                            }
+                            className="h-4 w-4 flex-shrink-0 accent-green-700"
+                          />
+                          <span className="truncate text-ink-900">{u.email}</span>
+                        </label>
+                      ))}
+                    {users.filter((u) => u.email.toLowerCase().includes(leaderSearch.trim().toLowerCase())).length ===
+                      0 && <p className="px-2 py-1.5 text-sm text-ink-400">Ingen treff.</p>}
+                  </div>
+                  <p className="mt-1 text-xs text-ink-400">
+                    {form.leader_ids.length === 0
+                      ? 'Ingen ledere valgt.'
+                      : `${form.leader_ids.length} ${form.leader_ids.length === 1 ? 'leder' : 'ledere'} valgt.`}
+                  </p>
                 </div>
               )}
             </div>
