@@ -41,3 +41,15 @@ h3,
 h4 {
   font-family: var(--font-display);
 }
+
+/* The default up/down spinner looks like a leftover native form control
+   next to the rest of the app's custom-styled rounded inputs -- typing or
+   the keyboard up/down arrows still work without it. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  appearance: textfield;
+}
