@@ -4,6 +4,7 @@ import { api, ApiError } from '../api/client'
 import type { Criticality, OppgaveSlot, Shift, ShiftConflict, Skill, User } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
 import { hasAdminAccess } from '../utils/roles'
+import { displayToIsoDate, isoToDisplayDate } from '../utils/dates'
 
 interface ShiftFormState {
   title: string
@@ -70,29 +71,11 @@ const formatDate = (isoDate: string) => {
   return parsed.toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })
 }
 
-// Native <input type="date">/<input type="time"> always *store* a
-// locale-independent value (YYYY-MM-DD / HH:MM), but Chrome's *displayed*
-// digit order and 12h/24h format follow the browser's own UI language
-// setting, not this page's lang attribute or anything the app controls --
-// a visitor with their browser set to English sees MM/DD/YYYY and AM/PM
-// regardless. Plain text inputs with our own parsing sidestep that, at
-// the cost of the native calendar/scroll widgets.
-const isoToDisplayDate = (iso: string) => {
-  if (!iso) return ''
-  const [y, m, d] = iso.split('-')
-  return `${d}.${m}.${y}`
-}
-
-const displayToIsoDate = (display: string): string | null => {
-  const match = display.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
-  if (!match) return null
-  const [, d, m, y] = match
-  const day = Number(d)
-  const month = Number(m)
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null
-  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-}
-
+// Native <input type="time"> has the same browser-language-dependent
+// display problem as <input type="date"> (see utils/dates.ts) -- its
+// stored value is already 24h HH:MM, so a plain text field showing that
+// value directly avoids the locale mismatch without needing reformatting,
+// just validation.
 const isValidDisplayTime = (display: string) => {
   const match = display.trim().match(/^(\d{1,2}):(\d{2})$/)
   if (!match) return false
