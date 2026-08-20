@@ -1,28 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bar, Doughnut } from 'react-chartjs-2'
-import {
-  ArcElement,
-  BarElement,
-  CategoryScale,
-  Chart as ChartJS,
-  Legend,
-  LinearScale,
-  Tooltip,
-} from 'chart.js'
+import { Bar } from 'react-chartjs-2'
+import { BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { EventMetrics, OppgaveSlot, Shift } from '../types'
 import { Badge, Card, ErrorText, Input, Label, PageHeader } from '../components/ui'
+import { displayToIsoDate, isoToDisplayDate } from '../utils/dates'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
-
-const DOUGHNUT_COLORS = { filled: '#1b4332', empty: '#ebe1cd' }
 
 export default function Dashboard() {
   const { selectedEvent, loading: eventsLoading } = useEvents()
   const [date, setDate] = useState('')
+  const [dateText, setDateText] = useState('')
   const [dateInitialized, setDateInitialized] = useState(false)
   const [metrics, setMetrics] = useState<EventMetrics | null>(null)
   const [allShifts, setAllShifts] = useState<Shift[]>([])
@@ -55,6 +47,7 @@ export default function Dashboard() {
   useEffect(() => {
     setDateInitialized(false)
     setDate('')
+    setDateText('')
   }, [selectedEvent?.id])
 
   useEffect(() => {
@@ -64,6 +57,7 @@ export default function Dashboard() {
         ? allShifts.reduce((min, s) => (s.date < min ? s.date : min), allShifts[0].date)
         : (selectedEvent.date?.slice(0, 10) ?? todayIso())
     setDate(earliest)
+    setDateText(isoToDisplayDate(earliest))
     setDateInitialized(true)
   }, [selectedEvent, allShifts, shiftsLoaded, dateInitialized])
 
@@ -104,8 +98,6 @@ export default function Dashboard() {
     )
   }
 
-  const shiftsWithCapacity = metrics?.shifts.filter((s) => s.capacity !== null) ?? []
-
   return (
     <div>
       <PageHeader
@@ -114,7 +106,21 @@ export default function Dashboard() {
         action={
           <div className="w-40">
             <Label>Dato</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {/* Plain text, not <input type="date"> -- see utils/dates.ts
+                for why the native widget shows the wrong digit order for
+                a visitor whose browser language isn't Norwegian. */}
+            <Input
+              type="text"
+              placeholder="DD.MM.ÅÅÅÅ"
+              value={dateText}
+              onChange={(e) => {
+                const text = e.target.value
+                setDateText(text)
+                const iso = displayToIsoDate(text)
+                if (iso) setDate(iso)
+              }}
+              onBlur={() => setDateText(isoToDisplayDate(date))}
+            />
           </div>
         }
       />
@@ -139,7 +145,9 @@ export default function Dashboard() {
           </div>
 
           <Card className="mb-6">
-            <h2 className="mb-4 text-lg font-semibold text-green-900">Utnyttelse per vakt ({date})</h2>
+            <h2 className="mb-4 text-lg font-semibold text-green-900">
+              Utnyttelse per vakt ({isoToDisplayDate(date)})
+            </h2>
             {metrics.shifts.length === 0 ? (
               <p className="text-sm text-ink-600">Ingen vakter denne dagen.</p>
             ) : (
@@ -170,40 +178,6 @@ export default function Dashboard() {
                     }}
                   />
                 </div>
-
-                {shiftsWithCapacity.length > 0 && (
-                  <div className="mb-6 grid grid-cols-4 gap-4 sm:grid-cols-6 lg:grid-cols-8">
-                    {shiftsWithCapacity.map((s) => {
-                      const filled = Math.min(s.assigned_count, s.capacity ?? 0)
-                      const empty = Math.max((s.capacity ?? 0) - filled, 0)
-                      return (
-                        <div key={s.id} className="text-center">
-                          <div className="mx-auto h-16 w-16">
-                            <Doughnut
-                              data={{
-                                labels: ['Tildelt', 'Ledig'],
-                                datasets: [
-                                  {
-                                    data: [filled, empty],
-                                    backgroundColor: [DOUGHNUT_COLORS.filled, DOUGHNUT_COLORS.empty],
-                                    borderWidth: 0,
-                                  },
-                                ],
-                              }}
-                              options={{ plugins: { legend: { display: false }, tooltip: { enabled: false } }, cutout: '65%' }}
-                            />
-                          </div>
-                          <p className="mt-1 truncate text-xs text-ink-600" title={s.title}>
-                            {s.title}
-                          </p>
-                          <p className="text-xs font-semibold text-ink-900">
-                            {filled}/{s.capacity}
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
 
                 <div className="flex flex-col gap-2">
                   {metrics.shifts.map((s) => (
