@@ -4,7 +4,7 @@ import { BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Toolt
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { InventoryCategory, InventoryDirection, InventoryItem, InventorySummaryRow } from '../types'
-import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
+import { Badge, Button, Card, ErrorText, FileInput, Input, Label, PageHeader, Select } from '../components/ui'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -252,12 +252,25 @@ export default function Lager() {
               </div>
               <div>
                 <Label>Bilde (valgfritt)</Label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setFormPhoto(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-ink-600"
-                />
+                <div className="flex items-center gap-3">
+                  <FileInput
+                    accept="image/*"
+                    fileName={formPhoto?.name}
+                    onChange={setFormPhoto}
+                  />
+                  {formPhoto && (
+                    <>
+                      <span className="truncate text-sm text-ink-600">{formPhoto.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormPhoto(null)}
+                        className="text-sm text-ink-400 hover:text-ink-600"
+                      >
+                        Fjern
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="col-span-2">
                 <Label>Beskrivelse</Label>
