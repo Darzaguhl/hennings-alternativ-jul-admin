@@ -38,6 +38,12 @@ export default function App() {
               <Route path="lager" element={<Lager />} />
             </Route>
           </Route>
+          {/* Catches anything that doesn't match above -- notably
+              /index.html, which a plain (non-SPA-aware) redirect rule on
+              the host can land a page refresh on instead of the original
+              path. Without this, <Routes> renders nothing for an unknown
+              path and the user sees a blank page. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
