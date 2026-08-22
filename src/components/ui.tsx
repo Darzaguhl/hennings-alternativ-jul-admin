@@ -50,6 +50,36 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   )
 }
 
+// The native <input type="file"> renders as a bare, browser-default
+// "Choose File" control with no styling hook of its own -- wrapping a
+// visually-hidden input in a styled <label> (labels forward clicks to
+// their input) gets it to match Button's look instead.
+export function FileInput({
+  onChange,
+  accept,
+  fileName,
+  className = '',
+}: {
+  onChange: (file: File | null) => void
+  accept?: string
+  fileName?: string | null
+  className?: string
+}) {
+  return (
+    <label
+      className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border border-cream-200 bg-cream-200 px-4 py-2 text-sm font-medium text-ink-900 transition-colors hover:bg-cream-50 ${className}`}
+    >
+      <span>{fileName ? 'Bytt bilde' : 'Velg bilde'}</span>
+      <input
+        type="file"
+        accept={accept}
+        className="sr-only"
+        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+      />
+    </label>
+  )
+}
+
 export function Label({ children }: { children: ReactNode }) {
   return <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-600">{children}</label>
 }

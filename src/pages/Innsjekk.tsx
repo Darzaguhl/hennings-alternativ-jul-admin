@@ -84,11 +84,17 @@ export default function Innsjekk() {
     if (canSeeInnsjekk) api.users().then(setUsers).catch(() => {})
   }, [canSeeInnsjekk])
 
+  // Depends on `tab` too, not just `selectedEvent` -- the canvas only
+  // exists in the DOM while the Innsjekk tab is mounted (see the
+  // conditional render below), so if this effect first fires while the
+  // Pool tab is showing, canvasRef.current is still null and the draw
+  // silently no-ops. Re-running when the tab switches to 'innsjekk' lets
+  // it draw once the canvas actually exists.
   useEffect(() => {
-    if (selectedEvent?.checkin_mode === 'event_qr' && canvasRef.current) {
+    if (tab === 'innsjekk' && selectedEvent?.checkin_mode === 'event_qr' && canvasRef.current) {
       QRCode.toCanvas(canvasRef.current, selectedEvent.code, { width: 260, margin: 1 }).catch(() => {})
     }
-  }, [selectedEvent])
+  }, [selectedEvent, tab])
 
   const loadPool = () => {
     if (!selectedEvent) return
