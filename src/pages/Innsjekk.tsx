@@ -185,6 +185,20 @@ export default function Innsjekk() {
     }
   }
 
+  const handleRemoveCheckin = async (entry: PoolEntry) => {
+    if (!confirm(`Fjerne innsjekkingen til ${displayName(entry.user)}?`)) return
+    setAssigning(entry.user.id)
+    setPoolError('')
+    try {
+      await api.removeCheckin(selectedEvent.id, entry.user.id, date)
+      loadPool()
+    } catch (err) {
+      setPoolError(err instanceof ApiError ? err.message : 'Kunne ikke fjerne innsjekkingen.')
+    } finally {
+      setAssigning(null)
+    }
+  }
+
   return (
     <div>
       <PageHeader title={canSeeInnsjekk ? 'Innsjekk & pool' : 'Pool & tildeling'} subtitle={selectedEvent.title} />
@@ -357,6 +371,15 @@ export default function Innsjekk() {
                       >
                         {assigning === entry.user.id ? 'Tildeler …' : 'Tildel'}
                       </Button>
+                      {canSeeInnsjekk && (
+                        <Button
+                          variant="danger"
+                          onClick={() => handleRemoveCheckin(entry)}
+                          disabled={assigning === entry.user.id}
+                        >
+                          Fjern
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>

@@ -309,6 +309,11 @@ export const api = {
       method: 'POST',
       body: { user_id: userId },
     }),
+  removeCheckin: (eventId: number, userId: number, date?: string) =>
+    request<void>(`/api/events/${eventId}/checkin/remove/`, {
+      method: 'POST',
+      body: { user_id: userId, date },
+    }),
 
   metrics: (eventId: number, date?: string) =>
     request<EventMetrics>(`/api/events/${eventId}/metrics/`, { params: { date } }),
