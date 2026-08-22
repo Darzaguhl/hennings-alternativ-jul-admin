@@ -84,6 +84,11 @@ export default function Layout() {
               Oppgaver
             </NavLink>
           )}
+          {canManageEvent && (
+            <NavLink to="/lager" className={navItemClass}>
+              Lager
+            </NavLink>
+          )}
         </nav>
 
         <div className="mt-auto border-t border-green-800 pt-4">

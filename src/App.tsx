@@ -11,6 +11,7 @@ import Arrangement from './pages/Arrangement'
 import Frivillige from './pages/Frivillige'
 import Historikk from './pages/Historikk'
 import Oppgaver from './pages/Oppgaver'
+import Lager from './pages/Lager'
 import AcceptInvite from './pages/AcceptInvite'
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="arrangement" element={<Arrangement />} />
               <Route path="historikk" element={<Historikk />} />
               <Route path="oppgaver" element={<Oppgaver />} />
+              <Route path="lager" element={<Lager />} />
             </Route>
           </Route>
         </Routes>

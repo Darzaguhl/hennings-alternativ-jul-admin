@@ -101,6 +101,36 @@ export interface X1Signup {
   created_at: string
 }
 
+export interface InventoryCategory {
+  id: number
+  name: string
+}
+
+export type InventoryDirection = 'in' | 'out'
+
+export interface InventoryItem {
+  id: number
+  event: number
+  category: number
+  category_name: string
+  description: string
+  quantity: number
+  direction: InventoryDirection
+  photo: string | null
+  logged_by: number | null
+  logged_by_email: string | null
+  note: string
+  created_at: string
+}
+
+export interface InventorySummaryRow {
+  category: number
+  category_name: string
+  in_total: number
+  out_total: number
+  net: number
+}
+
 export type MembershipRole = 'owner' | 'admin' | 'checkin_staff'
 
 export interface Membership {

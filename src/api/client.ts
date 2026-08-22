@@ -3,6 +3,9 @@ import type {
   Event,
   EventMetrics,
   Invite,
+  InventoryCategory,
+  InventoryItem,
+  InventorySummaryRow,
   InvitePreview,
   Membership,
   MembershipRole,
@@ -117,13 +120,17 @@ const buildUrl = (path: string, params?: RequestOptions['params']) => {
 
 async function request<T>(path: string, options: RequestOptions = {}, retry = true): Promise<T> {
   const access = tokenStore.getAccess()
+  // A FormData body (photo uploads) must NOT get 'Content-Type:
+  // application/json' or JSON.stringify -- fetch sets the correct
+  // multipart boundary itself as long as we leave Content-Type unset.
+  const isFormData = options.body instanceof FormData
   const res = await fetch(buildUrl(path, options.params), {
     method: options.method ?? 'GET',
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(access ? { Authorization: `Bearer ${access}` } : {}),
     },
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: isFormData ? (options.body as FormData) : options.body !== undefined ? JSON.stringify(options.body) : undefined,
   })
 
   if (res.status === 401 && retry) {
@@ -204,6 +211,44 @@ export const api = {
   deleteOppgaveSlot: (id: number) => request<void>(`/api/oppgave-slots/${id}/`, { method: 'DELETE' }),
 
   x1Signups: (params: { event?: number }) => request<X1Signup[]>('/api/x1-signups/', { params }),
+
+  inventoryCategories: () => request<InventoryCategory[]>('/api/inventory-categories/'),
+  createInventoryCategory: (data: { name: string }) =>
+    request<InventoryCategory>('/api/inventory-categories/', { method: 'POST', body: data }),
+  deleteInventoryCategory: (id: number) =>
+    request<void>(`/api/inventory-categories/${id}/`, { method: 'DELETE' }),
+
+  inventoryItems: (params: { event?: number }) => request<InventoryItem[]>('/api/inventory-items/', { params }),
+  inventorySummary: (eventId: number) =>
+    request<InventorySummaryRow[]>('/api/inventory-items/summary/', { params: { event: eventId } }),
+  createInventoryItem: (data: {
+    event: number
+    category: number
+    quantity: number
+    description?: string
+    direction?: 'in' | 'out'
+    note?: string
+    photo?: File
+  }) => {
+    // Only go through FormData when there's actually a photo -- a plain
+    // JSON POST for a photo-less manual/correction entry is simpler and
+    // matches every other write in this client.
+    if (!data.photo) return request<InventoryItem>('/api/inventory-items/', { method: 'POST', body: data })
+    const form = new FormData()
+    form.append('event', String(data.event))
+    form.append('category', String(data.category))
+    form.append('quantity', String(data.quantity))
+    if (data.description) form.append('description', data.description)
+    if (data.direction) form.append('direction', data.direction)
+    if (data.note) form.append('note', data.note)
+    form.append('photo', data.photo)
+    return request<InventoryItem>('/api/inventory-items/', { method: 'POST', body: form })
+  },
+  updateInventoryItem: (
+    id: number,
+    data: Partial<Pick<InventoryItem, 'category' | 'description' | 'quantity' | 'direction' | 'note'>>
+  ) => request<InventoryItem>(`/api/inventory-items/${id}/`, { method: 'PATCH', body: data }),
+  deleteInventoryItem: (id: number) => request<void>(`/api/inventory-items/${id}/`, { method: 'DELETE' }),
 
   skills: () => request<Skill[]>('/api/skills/'),
   createSkill: (data: Partial<Skill>) => request<Skill>('/api/skills/', { method: 'POST', body: data }),
