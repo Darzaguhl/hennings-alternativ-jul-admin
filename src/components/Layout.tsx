@@ -96,6 +96,11 @@ export default function Layout() {
               Fremhevinger
             </NavLink>
           )}
+          {canSeeFremhevinger && (
+            <NavLink to="/vurderinger" className={navItemClass}>
+              Vurderinger
+            </NavLink>
+          )}
         </nav>
 
         <div className="mt-auto border-t border-green-800 pt-4">
