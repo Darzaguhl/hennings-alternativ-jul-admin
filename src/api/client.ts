@@ -1,5 +1,6 @@
 import type {
   Assignment,
+  Commendation,
   Event,
   EventMetrics,
   Invite,
@@ -189,6 +190,12 @@ export const api = {
     request<Shift>(`/api/shifts/${id}/`, { method: 'PATCH', body: data }),
   deleteShift: (id: number) => request<void>(`/api/shifts/${id}/`, { method: 'DELETE' }),
   shiftAssignments: (id: number) => request<Assignment[]>(`/api/shifts/${id}/assignments/`),
+
+  commendations: (params: { event?: number; shift?: number; user?: number }) =>
+    request<Commendation[]>('/api/commendations/', { params }),
+  createCommendation: (data: { shift: number; user: number; note?: string }) =>
+    request<Commendation>('/api/commendations/', { method: 'POST', body: data }),
+  deleteCommendation: (id: number) => request<void>(`/api/commendations/${id}/`, { method: 'DELETE' }),
 
   shiftConflicts: (eventId: number) =>
     request<ShiftConflict[]>('/api/shift-conflicts/', { params: { event: eventId } }),

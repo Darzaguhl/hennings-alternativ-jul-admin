@@ -17,6 +17,8 @@ export default function Layout() {
   const canSeeRoller = hasAdminAccess(role)
   const canSeePool = hasAdminAccess(role) || role === 'checkin_staff' || role === 'shift_leader'
   const canSeeInnsjekk = hasAdminAccess(role) || role === 'checkin_staff'
+  // Admins can flag anyone assigned; a shift leader can flag their own team.
+  const canSeeFremhevinger = hasAdminAccess(role) || role === 'shift_leader'
 
   return (
     <div className="flex min-h-screen">
@@ -87,6 +89,11 @@ export default function Layout() {
           {canManageEvent && (
             <NavLink to="/lager" className={navItemClass}>
               Lager
+            </NavLink>
+          )}
+          {canSeeFremhevinger && (
+            <NavLink to="/fremhevinger" className={navItemClass}>
+              Fremhevinger
             </NavLink>
           )}
         </nav>

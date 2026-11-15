@@ -15,6 +15,9 @@ export default function Frivillige() {
   const [users, setUsers] = useState<User[]>([])
   const [shifts, setShifts] = useState<Shift[]>([])
   const [x1UserIds, setX1UserIds] = useState<Set<number>>(new Set())
+  // Fremhev flags per volunteer -- admin-only (the API scopes them, and
+  // they're internal: never shown to the volunteer themselves).
+  const [flagCounts, setFlagCounts] = useState<Map<number, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -35,11 +38,15 @@ export default function Frivillige() {
       // silently show an incomplete (near-empty) picture -- only ask for
       // it when the viewer can actually see everyone's.
       isAdmin ? api.x1Signups({ event: selectedEvent.id }) : Promise.resolve([]),
+      isAdmin ? api.commendations({ event: selectedEvent.id }) : Promise.resolve([]),
     ])
-      .then(([u, s, x1]) => {
+      .then(([u, s, x1, flags]) => {
         setUsers(u)
         setShifts(s)
         setX1UserIds(new Set(x1.map((signup) => signup.user)))
+        const counts = new Map<number, number>()
+        flags.forEach((f) => counts.set(f.user, (counts.get(f.user) ?? 0) + 1))
+        setFlagCounts(counts)
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Kunne ikke laste frivillige.'))
       .finally(() => setLoading(false))
@@ -137,6 +144,7 @@ export default function Frivillige() {
               user={u}
               shifts={signupsByUser.get(u.id) ?? []}
               wantsX1={x1UserIds.has(u.id)}
+              flagCount={flagCounts.get(u.id) ?? 0}
               canSeeNotes={canSeeNotes}
               canDelete={canDelete}
               onDelete={handleDelete}
@@ -153,6 +161,7 @@ function VolunteerCard({
   user,
   shifts,
   wantsX1,
+  flagCount,
   canSeeNotes,
   canDelete,
   onDelete,
@@ -160,6 +169,7 @@ function VolunteerCard({
   user: User
   shifts: Shift[]
   wantsX1: boolean
+  flagCount: number
   canSeeNotes: boolean
   canDelete: boolean
   onDelete: (user: User) => void
@@ -204,6 +214,7 @@ function VolunteerCard({
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium text-ink-900">{displayName(user)}</p>
             {wantsX1 && <Badge tone="warning">Ønsker X1</Badge>}
+            {flagCount > 0 && <Badge tone="success">★ Fremhevet{flagCount > 1 ? ` ×${flagCount}` : ''}</Badge>}
           </div>
           {displayName(user) !== user.email && <p className="text-xs text-ink-400">{user.email}</p>}
           {(user.phone || user.address || user.birthdate) && (
