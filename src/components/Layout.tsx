@@ -101,6 +101,16 @@ export default function Layout() {
               Vurderinger
             </NavLink>
           )}
+          {hasAdminAccess(role) && (
+            <NavLink to="/oppmote" className={navItemClass}>
+              Oppmøte
+            </NavLink>
+          )}
+          {hasAdminAccess(role) && (
+            <NavLink to="/standing" className={navItemClass}>
+              Standing
+            </NavLink>
+          )}
         </nav>
 
         <div className="mt-auto border-t border-green-800 pt-4">
