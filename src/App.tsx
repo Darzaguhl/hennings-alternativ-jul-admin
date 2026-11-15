@@ -12,6 +12,7 @@ import Frivillige from './pages/Frivillige'
 import Historikk from './pages/Historikk'
 import Oppgaver from './pages/Oppgaver'
 import Lager from './pages/Lager'
+import Fremhevinger from './pages/Fremhevinger'
 import AcceptInvite from './pages/AcceptInvite'
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="historikk" element={<Historikk />} />
               <Route path="oppgaver" element={<Oppgaver />} />
               <Route path="lager" element={<Lager />} />
+              <Route path="fremhevinger" element={<Fremhevinger />} />
             </Route>
           </Route>
           {/* Catches anything that doesn't match above -- notably

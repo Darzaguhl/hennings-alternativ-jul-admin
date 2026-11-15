@@ -220,3 +220,22 @@ export interface OppgaveHistoryEntry {
   fill_rate: number | null
   oversubscription_factor: number | null
 }
+
+// A leader's internal "fremhev" flag -- see backend Commendation. Never
+// shown to the flagged volunteer; the API only returns it to event admins
+// and to the leader who raised it.
+export interface Commendation {
+  id: number
+  event: number
+  user: number
+  user_email: string
+  user_name: string
+  shift: number
+  shift_title: string
+  oppgave_slot: number | null
+  skill_name: string | null
+  flagged_by: number | null
+  flagged_by_email: string | null
+  note: string
+  created_at: string
+}
