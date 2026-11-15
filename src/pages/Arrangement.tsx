@@ -126,6 +126,17 @@ export default function Arrangement() {
     }
   }
 
+  const toggleRatingVisibility = async () => {
+    const next = selectedEvent.rating_visibility === 'team' ? 'own' : 'team'
+    setError('')
+    try {
+      await api.updateEvent(selectedEvent.id, { rating_visibility: next })
+      refresh()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Kunne ikke endre innstillingen.')
+    }
+  }
+
   const handleActivate = async (event: Event) => {
     setLifecycleBusyId(event.id)
     setLifecycleError('')
@@ -293,6 +304,18 @@ export default function Arrangement() {
         </p>
         <Button variant="secondary" onClick={toggleCheckinMode}>
           Bytt til {selectedEvent.checkin_mode === 'personal_qr' ? 'delt kode' : 'personlig QR'}
+        </Button>
+      </Card>
+
+      <Card className="mb-8 max-w-lg">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-600">Hvem ser vurderinger</h2>
+        <p className="mb-3 text-sm text-ink-600">
+          {selectedEvent.rating_visibility === 'team'
+            ? 'Hele teamet — en vaktleder ser også de andre vaktledernes vurderinger av folk på sine vakter.'
+            : 'Kun egne — en vaktleder ser bare vurderingene de har gitt selv. Admin ser alle. Den som vurderes ser aldri noe.'}
+        </p>
+        <Button variant="secondary" onClick={toggleRatingVisibility}>
+          Bytt til {selectedEvent.rating_visibility === 'team' ? 'kun egne' : 'hele teamet'}
         </Button>
       </Card>
 

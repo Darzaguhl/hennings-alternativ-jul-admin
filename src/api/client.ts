@@ -1,6 +1,8 @@
 import type {
   Assignment,
   Commendation,
+  Rating,
+  RatingLevel,
   Event,
   EventMetrics,
   Invite,
@@ -196,6 +198,13 @@ export const api = {
   createCommendation: (data: { shift: number; user: number; note?: string }) =>
     request<Commendation>('/api/commendations/', { method: 'POST', body: data }),
   deleteCommendation: (id: number) => request<void>(`/api/commendations/${id}/`, { method: 'DELETE' }),
+  ratings: (params: { event?: number; shift?: number; user?: number }) =>
+    request<Rating[]>('/api/ratings/', { params }),
+  createRating: (data: { shift: number; user: number; level: RatingLevel; note?: string }) =>
+    request<Rating>('/api/ratings/', { method: 'POST', body: data }),
+  updateRating: (id: number, data: { level?: RatingLevel; note?: string }) =>
+    request<Rating>(`/api/ratings/${id}/`, { method: 'PATCH', body: data }),
+  deleteRating: (id: number) => request<void>(`/api/ratings/${id}/`, { method: 'DELETE' }),
 
   shiftConflicts: (eventId: number) =>
     request<ShiftConflict[]>('/api/shift-conflicts/', { params: { event: eventId } }),

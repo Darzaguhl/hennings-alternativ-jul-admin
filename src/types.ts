@@ -29,6 +29,10 @@ export type ViewerRole = 'owner' | 'admin' | 'checkin_staff' | 'shift_leader' | 
 
 export type CheckinMode = 'personal_qr' | 'event_qr'
 
+// Who besides admins can read post-event ratings: 'own' = a leader sees only
+// the ratings they gave; 'team' = also fellow leaders' ratings on their vakter.
+export type RatingVisibility = 'own' | 'team'
+
 export interface Event {
   id: number
   title: string
@@ -40,6 +44,7 @@ export interface Event {
   signup_closes_at: string | null
   signups_open: boolean
   checkin_mode: CheckinMode
+  rating_visibility: RatingVisibility
   created_by: User
   viewer_role: ViewerRole
 }
@@ -238,4 +243,26 @@ export interface Commendation {
   flagged_by_email: string | null
   note: string
   created_at: string
+}
+
+export type RatingLevel = 'utmerket' | 'god' | 'ok' | 'bekymring'
+
+// A leader's or admin's internal post-event rating of a volunteer on one
+// vakt -- see backend Rating. Never shown to the rated volunteer.
+export interface Rating {
+  id: number
+  event: number
+  user: number
+  user_email: string
+  user_name: string
+  shift: number
+  shift_title: string
+  oppgave_slot: number | null
+  skill_name: string | null
+  rated_by: number | null
+  rated_by_email: string | null
+  level: RatingLevel
+  note: string
+  created_at: string
+  updated_at: string
 }
