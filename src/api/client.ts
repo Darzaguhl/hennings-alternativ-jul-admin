@@ -211,6 +211,10 @@ export const api = {
   deleteRating: (id: number) => request<void>(`/api/ratings/${id}/`, { method: 'DELETE' }),
   eventAttendance: (eventId: number) =>
     request<{ event: number; days: AttendanceDay[] }>(`/api/events/${eventId}/attendance/`),
+  excuseAbsence: (eventId: number, data: { date: string; user_id?: number; all?: boolean; note?: string }) =>
+    request<{ excused: number }>(`/api/events/${eventId}/attendance/excuse/`, { method: 'POST', body: data }),
+  unexcuseAbsence: (eventId: number, userId: number, date: string) =>
+    request<void>(`/api/events/${eventId}/attendance/excuse/`, { method: 'DELETE', body: { user_id: userId, date } }),
   standings: (params: { standing?: StandingLevel } = {}) => request<Standing[]>('/api/standings/', { params }),
   setStandingOverride: (userId: number, data: { level: StandingOverrideLevel; note: string }) =>
     request<Standing>(`/api/standings/${userId}/override/`, { method: 'PUT', body: data }),

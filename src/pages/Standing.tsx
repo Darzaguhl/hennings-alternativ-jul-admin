@@ -158,6 +158,7 @@ export default function Standing() {
                   <p className="text-sm text-ink-600">
                     {r.events} arrangement · møtt {r.attended + r.walk_ins}
                     {r.no_shows > 0 ? ` · uteblitt ${r.no_shows}` : ''}
+                    {r.excused > 0 ? ` · ${r.excused} unntatt` : ''}
                     {r.upcoming > 0 ? ` · ${r.upcoming} kommende` : ''}
                     {r.commendations > 0 ? ` · ★ ${r.commendations}` : ''}
                   </p>

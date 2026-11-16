@@ -287,12 +287,13 @@ export interface Standing {
   attended: number
   walk_ins: number
   no_shows: number
+  excused: number
   upcoming: number
   no_show_rate: number | null
   events: number
 }
 
-export type AttendanceStatus = 'attended' | 'walk_in' | 'no_show' | 'untracked' | 'upcoming'
+export type AttendanceStatus = 'attended' | 'walk_in' | 'no_show' | 'excused' | 'upcoming'
 
 export interface AttendancePerson {
   user: number
@@ -301,16 +302,16 @@ export interface AttendancePerson {
   status: AttendanceStatus
   oppgaver: string[]
   assigned: string | null
+  excuse_note: string
 }
 
-// One event day: who signed up, who actually arrived, who didn't. `tracked`
-// is false for a past day where nobody was checked in at all (check-in
-// wasn't used), so absences can't be told from "not tracked".
+// One event day: who signed up, who actually arrived, who didn't. A past
+// signup with no check-in is a no-show unless an admin has excused it.
 export interface AttendanceDay {
   date: string
   signed_up: number
   checked_in: number
   no_shows: number
-  tracked: boolean
+  excused: number
   people: AttendancePerson[]
 }
