@@ -266,3 +266,52 @@ export interface Rating {
   created_at: string
   updated_at: string
 }
+
+export type StandingLevel = 'good' | 'concern' | 'new'
+export type StandingOverrideLevel = 'good' | 'concern'
+
+// A volunteer's internal standing -- see backend api/standing.py. Derived
+// from ratings, check-ins and flags, with an optional admin override. Admin-
+// only; never shown to the volunteer.
+export interface Standing {
+  user: number
+  user_email: string
+  user_name: string
+  standing: StandingLevel // the effective one: override if set, else computed
+  computed: StandingLevel
+  reasons: ('bekymring' | 'no_shows')[]
+  override: StandingOverrideLevel | null
+  override_note: string
+  ratings: Record<RatingLevel, number>
+  commendations: number
+  attended: number
+  walk_ins: number
+  no_shows: number
+  excused: number
+  upcoming: number
+  no_show_rate: number | null
+  events: number
+}
+
+export type AttendanceStatus = 'attended' | 'walk_in' | 'no_show' | 'excused' | 'upcoming'
+
+export interface AttendancePerson {
+  user: number
+  user_email: string
+  user_name: string
+  status: AttendanceStatus
+  oppgaver: string[]
+  assigned: string | null
+  excuse_note: string
+}
+
+// One event day: who signed up, who actually arrived, who didn't. A past
+// signup with no check-in is a no-show unless an admin has excused it.
+export interface AttendanceDay {
+  date: string
+  signed_up: number
+  checked_in: number
+  no_shows: number
+  excused: number
+  people: AttendancePerson[]
+}
