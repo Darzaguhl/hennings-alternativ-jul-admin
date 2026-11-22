@@ -315,3 +315,11 @@ export interface AttendanceDay {
   excused: number
   people: AttendancePerson[]
 }
+
+// A Google/Microsoft account linked to the signed-in user (backend
+// SocialIdentity). Linking never changes what the user may do.
+export interface SocialIdentity {
+  provider: 'google' | 'microsoft'
+  email: string
+  created_at: string
+}
