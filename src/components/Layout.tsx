@@ -111,6 +111,16 @@ export default function Layout() {
               Standing
             </NavLink>
           )}
+          {hasAdminAccess(role) && (
+            <NavLink to="/givere" className={navItemClass}>
+              Givere
+            </NavLink>
+          )}
+          {hasAdminAccess(role) && (
+            <NavLink to="/matplan" className={navItemClass}>
+              Matplan
+            </NavLink>
+          )}
         </nav>
 
         <div className="mt-auto border-t border-green-800 pt-4">
