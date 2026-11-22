@@ -58,18 +58,23 @@ export function FileInput({
   onChange,
   accept,
   fileName,
+  chooseLabel = 'Velg bilde',
+  changeLabel = 'Bytt bilde',
   className = '',
 }: {
   onChange: (file: File | null) => void
   accept?: string
   fileName?: string | null
+  /** Button text before / after a file is chosen (defaults suit the photo uploads). */
+  chooseLabel?: string
+  changeLabel?: string
   className?: string
 }) {
   return (
     <label
       className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border border-cream-200 bg-cream-200 px-4 py-2 text-sm font-medium text-ink-900 transition-colors hover:bg-cream-50 ${className}`}
     >
-      <span>{fileName ? 'Bytt bilde' : 'Velg bilde'}</span>
+      <span>{fileName ? changeLabel : chooseLabel}</span>
       <input
         type="file"
         accept={accept}

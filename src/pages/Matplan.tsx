@@ -256,7 +256,14 @@ function ImportPanel({ onImported }: { onImported: () => void }) {
       setReport(result)
       if (!dryRun) onImported()
     } catch (err) {
-      setError(message(err, 'Kunne ikke importere filen.'))
+      // A rejected file comes back as an ApiError with the reason. Anything
+      // else means no answer arrived at all (network, or the server gave up
+      // waiting) -- say so rather than a vague "failed".
+      setError(
+        err instanceof ApiError
+          ? err.message || 'Kunne ikke importere filen.'
+          : 'Fikk ikke svar fra serveren. Importen kan ha tatt for lang tid. Last siden på nytt og se om noe ble importert, eller prøv igjen.',
+      )
     } finally {
       setBusy(false)
     }
@@ -271,7 +278,18 @@ function ImportPanel({ onImported }: { onImported: () => void }) {
         tomme felt og overskriver ikke det du har endret.
       </p>
       <div className="flex flex-wrap items-center gap-3">
-        <FileInput accept=".xlsx" fileName={file?.name} onChange={(f) => { setFile(f); setReport(null) }} />
+        <FileInput
+          accept=".xlsx"
+          fileName={file?.name}
+          chooseLabel="Velg Excel-fil"
+          changeLabel="Bytt fil"
+          onChange={(f) => {
+            setFile(f)
+            setReport(null)
+            setError('')
+          }}
+        />
+        {file && <span className="text-sm text-ink-600">{file.name}</span>}
         <Button variant="secondary" disabled={!file || busy} onClick={() => run(true)}>
           Forhåndsvis
         </Button>
@@ -279,6 +297,7 @@ function ImportPanel({ onImported }: { onImported: () => void }) {
           Importer
         </Button>
       </div>
+      {busy && <p className="mt-2 text-sm text-ink-600">Leser filen …</p>}
       <div className="mt-2">
         <ErrorText>{error}</ErrorText>
       </div>
