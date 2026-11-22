@@ -323,3 +323,126 @@ export interface SocialIdentity {
   email: string
   created_at: string
 }
+
+// ---- Donor / food CRM (admin-only; see backend api/crm.py) ------------------
+// Note: model fields (quantities, prices) arrive as decimal *strings*, while
+// computed numbers (forecast, summary) arrive as plain numbers -- always wrap
+// in Number() before doing arithmetic.
+
+export type DonorRelationship = 'sponsor' | 'supplier' | 'both' | 'unknown'
+
+export interface DonorContact {
+  id: number
+  donor: number
+  name: string
+  role: string
+  email: string
+  phone: string
+  is_primary: boolean
+  notes: string
+}
+
+export interface DonorYear {
+  year: number
+  lines: number
+  confirmed: number
+  delivered: number
+  missing: string[]
+}
+
+export interface Donor {
+  id: number
+  name: string
+  kind: 'company' | 'individual' | 'other'
+  relationship: DonorRelationship
+  owner_name: string
+  notes: string
+  last_contacted_on: string | null
+  next_contact_on: string | null
+  is_active: boolean
+  created_at: string
+  contacts: DonorContact[]
+  years: DonorYear[]
+  needs_attention: string[]
+}
+
+export type PlanStatus = 'planned' | 'asked' | 'confirmed' | 'delivered' | 'cancelled'
+export type Acquisition = 'gift' | 'purchase' | 'mixed' | 'unknown'
+export type PlanOutcome = '' | 'ran_out_early' | 'ran_out' | 'right' | 'leftover'
+
+export interface PlanLine {
+  id: number
+  year: number
+  item: number
+  item_name: string
+  category: string
+  donor: number | null
+  donor_name: string | null
+  via_donor: number | null
+  via_donor_name: string | null
+  status: PlanStatus
+  unit: string
+  quantity_requested: string | null
+  quantity_confirmed: string | null
+  quantity_received: string | null
+  quantity_note: string
+  acquisition: Acquisition
+  unit_price: string | null
+  price_note: string
+  estimated_cost: number | null
+  delivery_date: string | null
+  delivery_mode: 'pickup' | 'delivery' | 'unknown'
+  outcome: PlanOutcome
+  outcome_source: '' | 'manual' | 'imported'
+  leftover_quantity: string | null
+  ran_out_note: string
+  comment: string
+  next_year_note: string
+  updated_at: string
+}
+
+export interface GuestCount {
+  id: number
+  date: string
+  guests: number
+  note: string
+}
+
+export type ForecastAction = 'keep' | 'increase' | 'decrease' | 'drop' | 'none'
+
+export interface ForecastRow {
+  item: number
+  item_name: string
+  category: string
+  basis_year: number
+  unit: string
+  basis_quantity: number | null
+  suggested_quantity: number
+  action: ForecastAction
+  confidence: 'high' | 'medium' | 'low'
+  reasons: string[]
+  planned_quantity: number | null
+}
+
+export interface CrmSummary {
+  years: number[]
+  year: number
+  lines: number
+  by_status: Partial<Record<PlanStatus, number>>
+  by_acquisition: Partial<Record<Acquisition, number>>
+  estimated_cost: number
+  unpriced_purchase_lines: number
+  outcomes: Partial<Record<Exclude<PlanOutcome, ''>, number>>
+  guests: number | null
+}
+
+export interface CrmImportReport {
+  dry_run: boolean
+  years: { previous?: number; current?: number; next?: number }
+  donors: { created: number; matched: number }
+  contacts: { created: number; updated: number }
+  items: { created: number }
+  lines: { created: number; updated: number }
+  supplier_resolution: { text: string; donor: string; via: string; how: string }[]
+  unparsed_quantities: { item: string; field: string; text: string }[]
+}

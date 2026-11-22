@@ -6,6 +6,13 @@ import type {
   RatingLevel,
   AttendanceDay,
   SocialIdentity,
+  CrmImportReport,
+  CrmSummary,
+  Donor,
+  DonorContact,
+  ForecastRow,
+  GuestCount,
+  PlanLine,
   Standing,
   StandingLevel,
   StandingOverrideLevel,
@@ -200,6 +207,44 @@ export const api = {
     }),
   unlinkSocialIdentity: (provider: string) =>
     request<void>(`/api/auth/social/identities/${provider}/`, { method: 'DELETE' }),
+
+  // ---- Donor / food CRM ----
+  donors: (params: { search?: string; relationship?: string } = {}) => request<Donor[]>('/api/donors/', { params }),
+  createDonor: (data: Partial<Donor>) => request<Donor>('/api/donors/', { method: 'POST', body: data }),
+  updateDonor: (id: number, data: Partial<Donor>) => request<Donor>(`/api/donors/${id}/`, { method: 'PATCH', body: data }),
+  deleteDonor: (id: number) => request<void>(`/api/donors/${id}/`, { method: 'DELETE' }),
+  mergeDonor: (id: number, into: number) =>
+    request<Donor>(`/api/donors/${id}/merge/`, { method: 'POST', body: { into } }),
+  createDonorContact: (data: Partial<DonorContact>) =>
+    request<DonorContact>('/api/donor-contacts/', { method: 'POST', body: data }),
+  updateDonorContact: (id: number, data: Partial<DonorContact>) =>
+    request<DonorContact>(`/api/donor-contacts/${id}/`, { method: 'PATCH', body: data }),
+  deleteDonorContact: (id: number) => request<void>(`/api/donor-contacts/${id}/`, { method: 'DELETE' }),
+  planLines: (params: { year?: number; donor?: number }) => request<PlanLine[]>('/api/plan-lines/', { params }),
+  createPlanLine: (data: Record<string, unknown>) => request<PlanLine>('/api/plan-lines/', { method: 'POST', body: data }),
+  updatePlanLine: (id: number, data: Record<string, unknown>) =>
+    request<PlanLine>(`/api/plan-lines/${id}/`, { method: 'PATCH', body: data }),
+  deletePlanLine: (id: number) => request<void>(`/api/plan-lines/${id}/`, { method: 'DELETE' }),
+  guestCounts: (year: number) => request<GuestCount[]>('/api/guest-counts/', { params: { year } }),
+  createGuestCount: (data: { date: string; guests: number; note?: string }) =>
+    request<GuestCount>('/api/guest-counts/', { method: 'POST', body: data }),
+  deleteGuestCount: (id: number) => request<void>(`/api/guest-counts/${id}/`, { method: 'DELETE' }),
+  crmSummary: (year?: number) => request<CrmSummary>('/api/crm/summary/', { params: { year } }),
+  crmForecast: (year: number, expectedGuests?: number) =>
+    request<{ year: number; guest_totals: Record<string, number>; items: ForecastRow[] }>('/api/crm/forecast/', {
+      params: { year, expected_guests: expectedGuests },
+    }),
+  crmPlanYear: (year: number, expectedGuests?: number) =>
+    request<{ year: number; created: number; existing: number; skipped_dropped: number }>('/api/crm/plan-year/', {
+      method: 'POST',
+      body: { year, expected_guests: expectedGuests },
+    }),
+  crmImport: (file: File, dryRun: boolean) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('dry_run', dryRun ? 'true' : 'false')
+    return request<CrmImportReport>('/api/crm/import/', { method: 'POST', body: form })
+  },
 
   me: () => request<User>('/api/users/me/'),
   users: () => request<User[]>('/api/users/'),

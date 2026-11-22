@@ -17,6 +17,8 @@ import Vurderinger from './pages/Vurderinger'
 import Standing from './pages/Standing'
 import Oppmote from './pages/Oppmote'
 import Innlogging from './pages/Innlogging'
+import Givere from './pages/Givere'
+import Matplan from './pages/Matplan'
 import AcceptInvite from './pages/AcceptInvite'
 
 export default function App() {
@@ -46,6 +48,8 @@ export default function App() {
               <Route path="standing" element={<Standing />} />
               <Route path="oppmote" element={<Oppmote />} />
               <Route path="innlogging" element={<Innlogging />} />
+              <Route path="givere" element={<Givere />} />
+              <Route path="matplan" element={<Matplan />} />
             </Route>
           </Route>
           {/* Catches anything that doesn't match above -- notably
