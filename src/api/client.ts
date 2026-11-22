@@ -3,6 +3,10 @@ import type {
   Commendation,
   Rating,
   RatingLevel,
+  AttendanceDay,
+  Standing,
+  StandingLevel,
+  StandingOverrideLevel,
   Event,
   EventMetrics,
   Invite,
@@ -205,6 +209,17 @@ export const api = {
   updateRating: (id: number, data: { level?: RatingLevel; note?: string }) =>
     request<Rating>(`/api/ratings/${id}/`, { method: 'PATCH', body: data }),
   deleteRating: (id: number) => request<void>(`/api/ratings/${id}/`, { method: 'DELETE' }),
+  eventAttendance: (eventId: number) =>
+    request<{ event: number; days: AttendanceDay[] }>(`/api/events/${eventId}/attendance/`),
+  excuseAbsence: (eventId: number, data: { date: string; user_id?: number; all?: boolean; note?: string }) =>
+    request<{ excused: number }>(`/api/events/${eventId}/attendance/excuse/`, { method: 'POST', body: data }),
+  unexcuseAbsence: (eventId: number, userId: number, date: string) =>
+    request<void>(`/api/events/${eventId}/attendance/excuse/`, { method: 'DELETE', body: { user_id: userId, date } }),
+  standings: (params: { standing?: StandingLevel } = {}) => request<Standing[]>('/api/standings/', { params }),
+  setStandingOverride: (userId: number, data: { level: StandingOverrideLevel; note: string }) =>
+    request<Standing>(`/api/standings/${userId}/override/`, { method: 'PUT', body: data }),
+  clearStandingOverride: (userId: number) =>
+    request<void>(`/api/standings/${userId}/override/`, { method: 'DELETE' }),
 
   shiftConflicts: (eventId: number) =>
     request<ShiftConflict[]>('/api/shift-conflicts/', { params: { event: eventId } }),
