@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="nb">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Logger inn …</title>
+  </head>
+  <body>
+    <p style="font-family: sans-serif">Logger inn …</p>
+    <script>
+      // Landing page for the Microsoft sign-in popup (see src/auth/social.ts):
+      // hand the authorization response (code + state, or an error) to the
+      // window that opened us, and close. Nothing is stored here.
+      if (window.opener) {
+        window.opener.postMessage(
+          { type: 'microsoft-auth', query: window.location.search.slice(1) },
+          window.location.origin,
+        )
+      }
+      window.close()
+    </script>
+  </body>
+</html>

@@ -1,9 +1,11 @@
+import type { SocialProviders } from '../auth/social'
 import type {
   Assignment,
   Commendation,
   Rating,
   RatingLevel,
   AttendanceDay,
+  SocialIdentity,
   Standing,
   StandingLevel,
   StandingOverrideLevel,
@@ -169,6 +171,35 @@ export const api = {
       if (!res.ok) throw new ApiError(res.status, body, extractErrorMessage(body))
       return body as { access: string; refresh: string }
     }),
+
+  // Which of Google/Microsoft are switched on, plus their public client IDs.
+  // Unauthenticated; any failure just means "no social sign-in".
+  socialProviders: (): Promise<SocialProviders> =>
+    fetch(`${API_BASE_URL}/api/auth/social/providers/`)
+      .then((res) => (res.ok ? res.json() : {}))
+      .catch(() => ({})),
+
+  // Like login(): a refusal (no account, password account...) is a normal
+  // outcome shown inline, so bypass request()'s refresh/session-expired logic.
+  // create:false -- signing in here is pointless without an existing account.
+  socialLogin: (provider: string, idToken: string) =>
+    fetch(`${API_BASE_URL}/api/auth/social/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, id_token: idToken, create: false }),
+    }).then(async (res) => {
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new ApiError(res.status, body, extractErrorMessage(body))
+      return body as { access: string; refresh: string }
+    }),
+  socialIdentities: () => request<SocialIdentity[]>('/api/auth/social/identities/'),
+  linkSocialIdentity: (provider: string, idToken: string) =>
+    request<SocialIdentity[]>('/api/auth/social/identities/', {
+      method: 'POST',
+      body: { provider, id_token: idToken },
+    }),
+  unlinkSocialIdentity: (provider: string) =>
+    request<void>(`/api/auth/social/identities/${provider}/`, { method: 'DELETE' }),
 
   me: () => request<User>('/api/users/me/'),
   users: () => request<User[]>('/api/users/'),

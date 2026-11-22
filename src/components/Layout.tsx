@@ -115,6 +115,9 @@ export default function Layout() {
 
         <div className="mt-auto border-t border-green-800 pt-4">
           <p className="truncate px-2 text-xs text-cream-200/70">{user?.email}</p>
+          <NavLink to="/innlogging" className={navItemClass}>
+            Innlogging
+          </NavLink>
           <button
             onClick={logout}
             className="mt-2 w-full rounded-lg px-4 py-2 text-left text-sm text-cream-100 hover:bg-green-800"
