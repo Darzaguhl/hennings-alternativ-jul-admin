@@ -37,6 +37,16 @@ export default function Oppgaver() {
     }
   }
 
+  const toggleFlexible = async (skill: Skill) => {
+    setError('')
+    try {
+      const updated = await api.updateSkill(skill.id, { is_flexible: !skill.is_flexible })
+      setSkills((prev) => prev.map((s) => (s.id === skill.id ? updated : s)))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Kunne ikke oppdatere oppgaven.')
+    }
+  }
+
   const handleDelete = async (skill: Skill) => {
     if (!confirm(`Slette oppgaven «${skill.name}»?`)) return
     try {
@@ -58,6 +68,10 @@ export default function Oppgaver() {
           Dette er kun navnekatalogen. Hvilke vakter en oppgave faktisk tilbys på — og hvor mange plasser den har —
           settes per vakt under Vakter.
         </p>
+        <p className="mt-2 text-sm text-ink-600">
+          En oppgave merket «Hva som helst» vises sist i påmeldingen, kan ikke kombineres med bestemte oppgaver på samme
+          vakt, og de som velger den får oppgave fra poolen når de møter opp.
+        </p>
       </Card>
 
       <Card className="mb-6">
@@ -77,7 +91,11 @@ export default function Oppgaver() {
           {skills.map((skill) => (
             <Card key={skill.id} className="!p-4">
               <div className="flex items-center justify-between gap-4">
-                <span className="font-medium text-ink-900">{skill.name}</span>
+                <span className="min-w-0 flex-1 font-medium text-ink-900">{skill.name}</span>
+                <label className="flex flex-shrink-0 items-center gap-2 text-sm text-ink-600">
+                  <input type="checkbox" checked={skill.is_flexible} onChange={() => toggleFlexible(skill)} />
+                  Hva som helst
+                </label>
                 <Button variant="danger" onClick={() => handleDelete(skill)} className="!px-3 !py-1.5 !text-xs">
                   Slett
                 </Button>
