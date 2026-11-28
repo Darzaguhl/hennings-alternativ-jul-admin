@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { Donor, DonorContact, DonorRelationship } from '../types'
-import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
+import { Badge, Button, Card, Drawer, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
 import { hasAdminAccess } from '../utils/roles'
 
 const REL_LABEL: Record<DonorRelationship, string> = {
@@ -62,7 +62,7 @@ function ContactRow({ contact, onChanged }: { contact: DonorContact; onChanged: 
 
   return (
     <div className="rounded-lg bg-cream-100 p-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2">
         <Input placeholder="Navn" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
         <Input placeholder="Rolle" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} />
         <Input placeholder="E-post" type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
@@ -149,8 +149,8 @@ function DonorEditor({ donor, others, onChanged }: { donor: Donor; others: Donor
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-5 border-t border-cream-200 pt-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Navn</Label>
           <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -203,7 +203,7 @@ function DonorEditor({ donor, others, onChanged }: { donor: Donor; others: Donor
           {donor.contacts.map((c) => (
             <ContactRow key={`${c.id}-${c.name}-${c.email}`} contact={c} onChanged={onChanged} />
           ))}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2">
             <Input placeholder="Nytt navn" value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} />
             <Input placeholder="E-post" type="email" value={newContact.email} onChange={(e) => setNewContact({ ...newContact, email: e.target.value })} />
             <Input placeholder="Telefon" value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} />
@@ -295,6 +295,8 @@ export default function Givere() {
     })
   }, [donors, search, relationship, onlyAttention])
 
+  const openDonor = donors.find((d) => d.id === openId)
+
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
   if (!isAdmin) return <p className="text-ink-600">Kun admin har tilgang til givere.</p>
 
@@ -315,23 +317,21 @@ export default function Givere() {
     <div>
       <PageHeader
         title="Givere"
-        subtitle="Sponsorer, leverandører og de som ordner ting for oss: kontaktpersoner, hva de har levert, og hvem som skal følges opp. Kun admin ser dette."
-        action={<Button onClick={() => setAdding((v) => !v)}>Ny giver</Button>}
+        subtitle="Sponsorer og leverandører. Kun admin."
+        action={<Button onClick={() => setAdding(true)}>Ny giver</Button>}
       />
       <div className="mb-4">
         <ErrorText>{error}</ErrorText>
       </div>
 
       {adding && (
-        <Card className="mb-4 flex items-end gap-3">
-          <div className="flex-1">
-            <Label>Navn</Label>
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Firma eller person" />
-          </div>
-          <Button disabled={!newName.trim()} onClick={addDonor}>
+        <Drawer title="Ny giver" onClose={() => setAdding(false)}>
+          <Label>Navn</Label>
+          <Input aria-label="Navn" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Firma eller person" />
+          <Button className="mt-3" disabled={!newName.trim()} onClick={addDonor}>
             Opprett
           </Button>
-        </Card>
+        </Drawer>
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -365,50 +365,73 @@ export default function Givere() {
           </p>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {visible.map((d) => {
-            // Last completed year says how they did; the coming one how far
-            // the asking has got.
-            const thisYear = new Date().getFullYear()
-            const past = d.years.find((y) => y.year < thisYear)
-            const coming = d.years.find((y) => y.year >= thisYear)
-            const primary = d.contacts.find((c) => c.is_primary) ?? d.contacts[0]
-            const who = [
-              d.owner_name && `Ansvarlig: ${d.owner_name}`,
-              primary && `${primary.name || primary.email}${primary.name && primary.email ? ` (${primary.email})` : ''}${d.contacts.length > 1 ? ` +${d.contacts.length - 1}` : ''}`,
-            ].filter(Boolean)
-            const record = [
-              past && `${past.year}: ${past.delivered} av ${past.confirmed || past.lines} mottatt`,
-              coming && `${coming.year}: ${coming.confirmed} av ${coming.lines} bekreftet`,
-              d.next_contact_on && `kontakt igjen ${formatDate(d.next_contact_on)}`,
-            ].filter(Boolean)
-            return (
-              <Card key={d.id} className="!p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium text-ink-900">
-                      {d.name} <Badge tone={REL_TONE[d.relationship]}>{REL_LABEL[d.relationship]}</Badge>
-                      {!d.is_active && <span className="ml-2 text-xs text-ink-600">inaktiv</span>}
-                    </p>
-                    {who.length > 0 && <p className="text-sm text-ink-600">{who.join(' · ')}</p>}
-                    {record.length > 0 && <p className="text-sm text-ink-600">{record.join(' · ')}</p>}
-                    {d.needs_attention.map((reason) => (
-                      <p key={reason} className="text-sm text-red-600">
-                        {reason}
-                      </p>
-                    ))}
-                  </div>
-                  <Button variant="secondary" onClick={() => setOpenId(openId === d.id ? null : d.id)}>
-                    {openId === d.id ? 'Lukk' : 'Åpne'}
-                  </Button>
-                </div>
-                {openId === d.id && (
-                  <DonorEditor donor={d} others={donors.filter((o) => o.id !== d.id)} onChanged={load} />
-                )}
-              </Card>
-            )
-          })}
-        </div>
+        <Card className="overflow-x-auto !p-0">
+          <table className="w-full text-sm text-ink-900">
+            <thead>
+              <tr className="border-b border-cream-200 text-left text-xs uppercase tracking-wide text-ink-600">
+                <th className="px-3 py-3 font-semibold">Giver</th>
+                <th className="px-3 py-3 font-semibold">Ansvarlig</th>
+                <th className="px-3 py-3 font-semibold">Kontakt</th>
+                <th className="px-3 py-3 font-semibold">Leveranser</th>
+                <th className="px-3 py-3 font-semibold">Oppfølging</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((d) => {
+                // Last completed year says how they did; the coming one how
+                // far the asking has got.
+                const thisYear = new Date().getFullYear()
+                const past = d.years.find((y) => y.year < thisYear)
+                const coming = d.years.find((y) => y.year >= thisYear)
+                const primary = d.contacts.find((c) => c.is_primary) ?? d.contacts[0]
+                return (
+                  <tr
+                    key={d.id}
+                    className={`cursor-pointer border-b border-cream-200 align-top last:border-0 hover:bg-cream-50 ${d.is_active ? '' : 'opacity-50'}`}
+                    onClick={() => setOpenId(d.id)}
+                  >
+                    <td className="px-3 py-2">
+                      <button className="mr-2 text-left font-medium">{d.name}</button>
+                      <Badge tone={REL_TONE[d.relationship]}>{REL_LABEL[d.relationship]}</Badge>
+                    </td>
+                    <td className="px-3 py-2 text-ink-600">{d.owner_name || '—'}</td>
+                    <td className="px-3 py-2 text-ink-600" title={primary?.email}>
+                      {primary ? primary.name || primary.email : '—'}
+                      {d.contacts.length > 1 && <span className="text-xs text-ink-400"> +{d.contacts.length - 1}</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-ink-600">
+                      {past && (
+                        <p>
+                          {past.year}: {past.delivered}/{past.confirmed || past.lines} mottatt
+                        </p>
+                      )}
+                      {coming && (
+                        <p>
+                          {coming.year}: {coming.confirmed}/{coming.lines} bekreftet
+                        </p>
+                      )}
+                      {!past && !coming && '—'}
+                    </td>
+                    <td className="px-3 py-2">
+                      {d.needs_attention.map((reason) => (
+                        <p key={reason} className="text-red-600">
+                          {reason}
+                        </p>
+                      ))}
+                      {d.next_contact_on && <p className="text-ink-600">Kontakt {formatDate(d.next_contact_on)}</p>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {openDonor && (
+        <Drawer title={openDonor.name} onClose={() => setOpenId(null)}>
+          <DonorEditor key={openDonor.id} donor={openDonor} others={donors.filter((o) => o.id !== openDonor.id)} onChanged={load} />
+        </Drawer>
       )}
     </div>
   )

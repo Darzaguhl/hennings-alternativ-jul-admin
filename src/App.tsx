@@ -12,9 +12,7 @@ import Frivillige from './pages/Frivillige'
 import Historikk from './pages/Historikk'
 import Oppgaver from './pages/Oppgaver'
 import Lager from './pages/Lager'
-import Fremhevinger from './pages/Fremhevinger'
-import Vurderinger from './pages/Vurderinger'
-import Standing from './pages/Standing'
+import Team from './pages/Team'
 import Oppmote from './pages/Oppmote'
 import Innlogging from './pages/Innlogging'
 import Givere from './pages/Givere'
@@ -33,19 +31,18 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="vakter" element={<Vakter />} />
               <Route path="frivillige" element={<Frivillige />} />
-              <Route path="innsjekk" element={<Innsjekk />} />
-              {/* Innsjekk and Pool & tildeling used to be separate pages,
-                  now they're tabs on the same one -- keep old /pool links
-                  (bookmarks, anything hardcoded elsewhere) working. */}
-              <Route path="pool" element={<Navigate to="/innsjekk" replace />} />
+              <Route path="innsjekk" element={<Innsjekk key="innsjekk" view="innsjekk" />} />
+              <Route path="pool" element={<Innsjekk key="pool" view="pool" />} />
               <Route path="roller" element={<Roller />} />
               <Route path="arrangement" element={<Arrangement />} />
               <Route path="historikk" element={<Historikk />} />
               <Route path="oppgaver" element={<Oppgaver />} />
               <Route path="lager" element={<Lager />} />
-              <Route path="fremhevinger" element={<Fremhevinger />} />
-              <Route path="vurderinger" element={<Vurderinger />} />
-              <Route path="standing" element={<Standing />} />
+              <Route path="team" element={<Team />} />
+              {/* Old addresses of pages that were merged into others. */}
+              <Route path="fremhevinger" element={<Navigate to="/team" replace />} />
+              <Route path="vurderinger" element={<Navigate to="/team" replace />} />
+              <Route path="standing" element={<Navigate to="/frivillige" replace />} />
               <Route path="oppmote" element={<Oppmote />} />
               <Route path="innlogging" element={<Innlogging />} />
               <Route path="givere" element={<Givere />} />

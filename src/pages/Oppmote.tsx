@@ -128,7 +128,7 @@ export default function Oppmote() {
     <div>
       <PageHeader
         title="Oppmøte"
-        subtitle={`${selectedEvent.title} — hvem som meldte seg på hver dag, hvem som sjekket inn, og hvem som uteble.`}
+        subtitle={`${selectedEvent.title} — påmeldt, møtt og uteblitt.`}
       />
       <div className="mb-4">
         <ErrorText>{error}</ErrorText>

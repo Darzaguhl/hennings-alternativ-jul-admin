@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { OppgaveSlot, PoolEntry, User } from '../types'
@@ -24,43 +24,15 @@ const isFullForAssignment = (slot: OppgaveSlot) => slot.capacity !== null && slo
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
 
-type Tab = 'innsjekk' | 'pool'
-
-const tabClass = (active: boolean) =>
-  `-mb-px border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
-    active ? 'border-green-700 text-green-900' : 'border-transparent text-ink-400 hover:text-ink-600'
-  }`
-
-export default function Innsjekk() {
+// Two views of the day at the door: checking people in, and placing those who
+// have arrived. Each is its own tab in the menu (see nav.ts).
+export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
   const { selectedEvent } = useEvents()
   const role = selectedEvent?.viewer_role
-  // Same gating as the old separate pages/nav items: checkin_staff and
-  // admins can do both; shift_leader can see the pool (to assign from it)
-  // but not check people in. canSeeInnsjekk is always a subset of
-  // canSeePool -- there's no role that sees Innsjekk but not Pool -- so the
-  // Pool tab is always available to anyone who reaches this page at all,
-  // and only the Innsjekk tab needs to be conditionally hidden.
+  // checkin_staff and admins can do both; a shift_leader can see the pool (to
+  // assign from it) but not check people in. Mirrors the menu in nav.ts.
   const canSeeInnsjekk = hasAdminAccess(role) || role === 'checkin_staff'
   const canSeePool = hasAdminAccess(role) || role === 'checkin_staff' || role === 'shift_leader'
-
-  // Defaults to 'pool' (always visible to anyone who reaches this page) and
-  // switches to 'innsjekk' once we actually know the viewer can see it --
-  // NOT via useState's initializer, since selectedEvent (and so role/
-  // canSeeInnsjekk) is still null on the very first render, before
-  // EventContext's fetch resolves. A useState initial value only runs
-  // once, on mount, so computing it from canSeeInnsjekk there would
-  // permanently lock every viewer onto the Pool tab regardless of role.
-  // The tabInitialized ref makes this a one-time default, not something
-  // that fights the user's own later tab clicks.
-  const [tab, setTab] = useState<Tab>('pool')
-  const tabInitialized = useRef(false)
-
-  useEffect(() => {
-    if (!tabInitialized.current && selectedEvent) {
-      tabInitialized.current = true
-      setTab(canSeeInnsjekk ? 'innsjekk' : 'pool')
-    }
-  }, [selectedEvent, canSeeInnsjekk])
 
   // Innsjekk state
   const [userCode, setUserCode] = useState('')
@@ -84,17 +56,13 @@ export default function Innsjekk() {
     if (canSeeInnsjekk) api.users().then(setUsers).catch(() => {})
   }, [canSeeInnsjekk])
 
-  // Depends on `tab` too, not just `selectedEvent` -- the canvas only
-  // exists in the DOM while the Innsjekk tab is mounted (see the
-  // conditional render below), so if this effect first fires while the
-  // Pool tab is showing, canvasRef.current is still null and the draw
-  // silently no-ops. Re-running when the tab switches to 'innsjekk' lets
-  // it draw once the canvas actually exists.
+  // The canvas only exists in the check-in view, and only once the event is
+  // loaded, so draw it when either changes.
   useEffect(() => {
-    if (tab === 'innsjekk' && selectedEvent?.checkin_mode === 'event_qr' && canvasRef.current) {
+    if (view === 'innsjekk' && selectedEvent?.checkin_mode === 'event_qr' && canvasRef.current) {
       QRCode.toCanvas(canvasRef.current, selectedEvent.code, { width: 260, margin: 1 }).catch(() => {})
     }
-  }, [selectedEvent, tab])
+  }, [selectedEvent, view])
 
   const loadPool = () => {
     if (!selectedEvent) return
@@ -142,7 +110,7 @@ export default function Innsjekk() {
       setInnsjekkMessage(`${result.user.email}: ${result.message}`)
       setSearch('')
       // The person who just checked in may now be waiting in today's pool --
-      // refresh it so switching to that tab shows them immediately instead
+      // refresh it so the pool view shows them immediately instead
       // of whatever was loaded before this check-in happened.
       loadPool()
     } catch (err) {
@@ -199,22 +167,14 @@ export default function Innsjekk() {
     }
   }
 
+  // Someone who may place people but not check them in lands on the pool.
+  if (view === 'innsjekk' && !canSeeInnsjekk) return <Navigate to="/pool" replace />
+
   return (
     <div>
-      <PageHeader title={canSeeInnsjekk ? 'Innsjekk & pool' : 'Pool & tildeling'} subtitle={selectedEvent.title} />
+      <PageHeader title={view === 'innsjekk' ? 'Innsjekk' : 'Pool & tildeling'} subtitle={selectedEvent.title} />
 
-      {canSeeInnsjekk && (
-        <div className="mb-6 flex gap-6 border-b border-cream-200">
-          <button onClick={() => setTab('innsjekk')} className={tabClass(tab === 'innsjekk')}>
-            Innsjekk
-          </button>
-          <button onClick={() => setTab('pool')} className={tabClass(tab === 'pool')}>
-            Pool &amp; tildeling
-          </button>
-        </div>
-      )}
-
-      {tab === 'innsjekk' && canSeeInnsjekk && (
+      {view === 'innsjekk' && canSeeInnsjekk && (
         <>
           <ErrorText>{innsjekkError}</ErrorText>
           {innsjekkMessage && <p className="mb-4 text-sm text-green-800">{innsjekkMessage}</p>}
@@ -290,7 +250,7 @@ export default function Innsjekk() {
         </>
       )}
 
-      {tab === 'pool' && canSeePool && (
+      {view === 'pool' && canSeePool && (
         <>
           <div className="mb-6 flex items-start justify-between gap-4">
             <p className="text-sm text-ink-600">

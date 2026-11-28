@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
-import type { Shift, User } from '../types'
-import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
+import type { Shift, Standing, StandingLevel, User } from '../types'
+import { Badge, Button, Card, Drawer, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
+import StandingPanel from '../components/StandingPanel'
+import { STANDING_LABEL, STANDING_TONE } from '../components/standing'
 import { hasAdminAccess } from '../utils/roles'
 
 const displayName = (user: User) => {
@@ -23,8 +25,25 @@ export default function Frivillige() {
 
   const [search, setSearch] = useState('')
   const [vaktFilter, setVaktFilter] = useState('')
+  // Internal standing (admin only): a badge and filter here, details and the
+  // override in a side panel. It also covers people who haven't signed up
+  // this time, listed separately on request.
+  const [standings, setStandings] = useState<Standing[]>([])
+  const [standingFilter, setStandingFilter] = useState<'' | StandingLevel>('')
+  const [showPast, setShowPast] = useState(false)
+  const [standingFor, setStandingFor] = useState<number | null>(null)
 
   const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
+
+  const loadStandings = () => {
+    if (!isAdmin) return
+    api
+      .standings()
+      .then(setStandings)
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Kunne ikke laste standing.'))
+  }
+
+  useEffect(loadStandings, [isAdmin])
 
   useEffect(() => {
     if (!selectedEvent) return
@@ -66,12 +85,24 @@ export default function Frivillige() {
 
   const volunteers = useMemo(() => users.filter((u) => signupsByUser.has(u.id)), [users, signupsByUser])
 
+  const standingByUser = new Map(standings.map((r) => [r.user, r]))
+
   const filtered = volunteers.filter((u) => {
     const term = search.trim().toLowerCase()
     if (term && !u.email.toLowerCase().includes(term) && !displayName(u).toLowerCase().includes(term)) return false
+    if (standingFilter && standingByUser.get(u.id)?.standing !== standingFilter) return false
     if (vaktFilter && !(signupsByUser.get(u.id) ?? []).some((s) => String(s.id) === vaktFilter)) return false
     return true
   })
+
+  const signedUp = new Set(volunteers.map((u) => u.id))
+  const past = standings.filter((r) => {
+    const term = search.trim().toLowerCase()
+    if (signedUp.has(r.user)) return false
+    if (standingFilter && r.standing !== standingFilter) return false
+    return !term || r.user_email.toLowerCase().includes(term) || r.user_name.toLowerCase().includes(term)
+  })
+  const openStanding = standingFor === null ? undefined : standingByUser.get(standingFor)
 
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
@@ -115,7 +146,7 @@ export default function Frivillige() {
       <ErrorText>{error}</ErrorText>
 
       <Card className="mb-6">
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <div>
             <Label>Søk på navn/e-post</Label>
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Navn eller navn@epost.no" />
@@ -131,7 +162,26 @@ export default function Frivillige() {
               ))}
             </Select>
           </div>
+          {isAdmin && (
+            <div>
+              <Label>Standing</Label>
+              <Select value={standingFilter} onChange={(e) => setStandingFilter(e.target.value as '' | StandingLevel)}>
+                <option value="">Alle</option>
+                {(Object.keys(STANDING_LABEL) as StandingLevel[]).map((k) => (
+                  <option key={k} value={k}>
+                    {STANDING_LABEL[k]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
+        {isAdmin && (
+          <label className="mt-3 flex items-center gap-2 text-sm text-ink-900">
+            <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} />
+            Vis også tidligere frivillige som ikke er meldt på nå
+          </label>
+        )}
       </Card>
 
       {loading ? (
@@ -145,6 +195,8 @@ export default function Frivillige() {
               shifts={signupsByUser.get(u.id) ?? []}
               wantsX1={x1UserIds.has(u.id)}
               flagCount={flagCounts.get(u.id) ?? 0}
+              standing={standingByUser.get(u.id)}
+              onStanding={() => setStandingFor(u.id)}
               canSeeNotes={canSeeNotes}
               canDelete={canDelete}
               onDelete={handleDelete}
@@ -152,6 +204,40 @@ export default function Frivillige() {
           ))}
           {filtered.length === 0 && <p className="text-ink-600">Ingen frivillige matcher filteret.</p>}
         </div>
+      )}
+
+      {isAdmin && showPast && !loading && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-600">
+            Tidligere frivillige ({past.length})
+          </h2>
+          <div className="flex flex-col gap-2">
+            {past.map((r) => (
+              <Card key={r.user} className="!p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-ink-900">
+                    <span className="font-medium">{r.user_name || r.user_email}</span>
+                    {r.user_name && <span className="ml-2 text-xs text-ink-400">{r.user_email}</span>}
+                  </p>
+                  <button onClick={() => setStandingFor(r.user)} aria-label={`Standing for ${r.user_name || r.user_email}`}>
+                    <Badge tone={STANDING_TONE[r.standing]}>{STANDING_LABEL[r.standing]} ›</Badge>
+                  </button>
+                </div>
+              </Card>
+            ))}
+            {past.length === 0 && <p className="text-ink-600">Ingen å vise.</p>}
+          </div>
+        </section>
+      )}
+
+      {openStanding && (
+        <Drawer title={openStanding.user_name || openStanding.user_email} onClose={() => setStandingFor(null)}>
+          <StandingPanel
+            key={`${openStanding.user}-${openStanding.override ?? ''}-${openStanding.override_note}`}
+            row={openStanding}
+            onChanged={loadStandings}
+          />
+        </Drawer>
       )}
     </div>
   )
@@ -162,6 +248,8 @@ function VolunteerCard({
   shifts,
   wantsX1,
   flagCount,
+  standing,
+  onStanding,
   canSeeNotes,
   canDelete,
   onDelete,
@@ -170,6 +258,8 @@ function VolunteerCard({
   shifts: Shift[]
   wantsX1: boolean
   flagCount: number
+  standing: Standing | undefined
+  onStanding: () => void
   canSeeNotes: boolean
   canDelete: boolean
   onDelete: (user: User) => void
@@ -215,6 +305,11 @@ function VolunteerCard({
             <p className="font-medium text-ink-900">{displayName(user)}</p>
             {wantsX1 && <Badge tone="warning">Ønsker X1</Badge>}
             {flagCount > 0 && <Badge tone="success">★ Fremhevet{flagCount > 1 ? ` ×${flagCount}` : ''}</Badge>}
+            {standing && (
+              <button onClick={onStanding} aria-label={`Standing for ${displayName(user)}`} title="Se standing">
+                <Badge tone={STANDING_TONE[standing.standing]}>{STANDING_LABEL[standing.standing]} ›</Badge>
+              </button>
+            )}
           </div>
           {displayName(user) !== user.email && <p className="text-xs text-ink-400">{user.email}</p>}
           {(user.phone || user.address || user.birthdate) && (

@@ -88,7 +88,7 @@ export default function Innlogging() {
     <div>
       <PageHeader
         title="Innlogging"
-        subtitle="Koble til Google eller Microsoft for å logge inn uten passord. Det endrer ikke hva du har tilgang til."
+        subtitle="Koble til Google eller Microsoft."
       />
       <div className="mb-4">
         <ErrorText>{error}</ErrorText>
