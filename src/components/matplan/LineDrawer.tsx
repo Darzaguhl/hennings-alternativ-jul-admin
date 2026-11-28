@@ -48,6 +48,7 @@ export default function LineDrawer({
   linesForItem,
   donors,
   error,
+  forecastStale,
   position,
   onStep,
   onPatch,
@@ -61,6 +62,8 @@ export default function LineDrawer({
   donors: Donor[]
   /** A failed save or delete -- shown here, since the page's own message is behind the panel. */
   error: string
+  /** Suggestions are being recalculated for a new guest figure. */
+  forecastStale: boolean
   position: { index: number; total: number }
   onStep: (delta: 1 | -1) => void
   onPatch: (id: number, patch: Record<string, unknown>) => void
@@ -220,7 +223,11 @@ export default function LineDrawer({
             </li>
           </ul>
           {canApply(line, suggestion, linesForItem) && (
-            <Button className="mt-2" onClick={() => save({ quantity_requested: String(suggestion.suggested_quantity) })}>
+            <Button
+              className="mt-2"
+              disabled={forecastStale}
+              onClick={() => save({ quantity_requested: String(suggestion.suggested_quantity) })}
+            >
               Bruk forslaget
             </Button>
           )}

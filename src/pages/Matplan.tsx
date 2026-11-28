@@ -11,6 +11,7 @@ import {
   ACTION_ICON,
   canApply,
   defaultMode,
+  differsFromSuggestion,
   kr,
   message,
   OUTCOME_LABEL,
@@ -148,7 +149,7 @@ export default function Matplan() {
     const q = search.trim().toLowerCase()
     if (q && !`${l.item_name} ${l.donor_name ?? ''}`.toLowerCase().includes(q)) return false
     if (filter === 'unconfirmed') return l.status === 'planned' || l.status === 'asked'
-    if (filter === 'differs') return applicable(l)
+    if (filter === 'differs') return differsFromSuggestion(l, suggestionByItem.get(l.item), linesPerItem.get(l.item) ?? 0)
     if (filter === 'missing') return l.status !== 'delivered' && l.status !== 'cancelled'
     if (filter === 'noOutcome') return !l.outcome && l.status !== 'cancelled'
     if (filter === 'guessed') return l.outcome_source === 'imported'
@@ -553,6 +554,7 @@ export default function Matplan() {
           linesForItem={linesPerItem.get(editingLine.item) ?? 1}
           donors={donors}
           error={error}
+          forecastStale={forecastStale}
           position={{ index: editing.order.indexOf(editing.id), total: editing.order.length }}
           onStep={step}
           onPatch={patchLine}

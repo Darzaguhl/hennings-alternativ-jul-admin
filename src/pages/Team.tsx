@@ -101,9 +101,23 @@ export default function Team() {
 
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
+  // True when nothing in the open panel would be lost: a level chosen or text
+  // typed there only counts once it's saved, so ask before dropping it.
+  const mayDiscardDraft = () => {
+    if (!openKey) return true
+    const unsaved =
+      draftNote !== startNote ||
+      draftFlagNote.trim() !== '' ||
+      draftLevel !== (byKey.myRating.get(openKey)?.level ?? null)
+    return !unsaved || confirm('Du har en vurdering eller et notat som ikke er lagret. Forkaste det?')
+  }
+
+  const closePanel = () => {
+    if (mayDiscardDraft()) setOpenKey(null)
+  }
+
   const openPanel = (key: string, level?: RatingLevel) => {
-    const typed = draftNote !== startNote || draftFlagNote.trim() !== ''
-    if (openKey && openKey !== key && typed && !confirm('Du har et notat som ikke er lagret. Forkaste det?')) return
+    if (openKey !== key && !mayDiscardDraft()) return
     const existing = byKey.myRating.get(key)
     const next = level ?? existing?.level ?? null
     const note = noteFor(existing, next)
@@ -288,7 +302,10 @@ export default function Team() {
                               aria-label={flag ? `Fjern fremheving av ${personName(a.user)}` : `Fremhev ${personName(a.user)}`}
                               title={flag ? 'Fremhevet av deg' : 'Fremhev: kan ta mer ansvar'}
                               disabled={busy}
-                              onClick={() => (flag ? removeFlag(flag) : addFlag(shift.id, a.user.id, ''))}
+                              /* With this person's panel open, a reason typed there goes with the star. */
+                              onClick={() =>
+                                flag ? removeFlag(flag) : addFlag(shift.id, a.user.id, openKey === key ? draftFlagNote.trim() : '')
+                              }
                               className={`text-xl leading-none ${flag ? 'text-gold-600' : 'text-ink-400 hover:text-gold-600'}`}
                             >
                               {flag ? '★' : '☆'}
@@ -316,7 +333,7 @@ export default function Team() {
                             </div>
                             <button
                               className="w-12 text-left text-xs text-ink-600 underline"
-                              onClick={() => (openKey === key ? setOpenKey(null) : openPanel(key))}
+                              onClick={() => (openKey === key ? closePanel() : openPanel(key))}
                             >
                               {openKey === key ? 'Lukk' : 'Notat'}
                             </button>

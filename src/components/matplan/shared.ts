@@ -44,22 +44,26 @@ export const trim = (v: string | number | null | undefined) => {
 export const kr = (n: number) =>
   new Intl.NumberFormat('no-NO', { style: 'currency', currency: 'NOK', maximumFractionDigits: 0 }).format(n)
 
-// A suggestion is for an item as a whole. It can only be copied onto a line
-// when that line *is* the whole item (one donor) and counts in the same unit;
-// otherwise one donor would be asked for everyone's amount. And only while the
-// amount is still ours to choose: not once the donor has confirmed or
-// delivered, and never for a past year, whose figures later forecasts build on.
+// A suggestion is for an item as a whole, so a line can only be compared with
+// it when that line *is* the whole item (one donor) and counts in the same unit.
+export const differsFromSuggestion = (line: PlanLine, suggestion: ForecastRow | undefined, linesForItem: number) =>
+  !!suggestion &&
+  linesForItem === 1 &&
+  line.status !== 'cancelled' &&
+  suggestion.action !== 'drop' &&
+  suggestion.action !== 'none' &&
+  suggestion.unit === line.unit &&
+  num(line.quantity_requested) !== suggestion.suggested_quantity
+
+// Copying it onto the line is narrower: only while the amount is still ours to
+// choose -- not once the donor has confirmed or delivered, and never for a past
+// year, whose figures later forecasts build on.
 export const canApply = (
   line: PlanLine,
   suggestion: ForecastRow | undefined,
   linesForItem: number,
   thisYear = new Date().getFullYear(),
 ) =>
-  !!suggestion &&
-  linesForItem === 1 &&
+  differsFromSuggestion(line, suggestion, linesForItem) &&
   line.year >= thisYear &&
-  (line.status === 'planned' || line.status === 'asked') &&
-  suggestion.action !== 'drop' &&
-  suggestion.action !== 'none' &&
-  suggestion.unit === line.unit &&
-  num(line.quantity_requested) !== suggestion.suggested_quantity
+  (line.status === 'planned' || line.status === 'asked')
