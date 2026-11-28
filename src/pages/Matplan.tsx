@@ -76,6 +76,8 @@ export default function Matplan() {
   const [editing, setEditing] = useState<{ id: number; order: number[] } | null>(null)
   const [expectedInput, setExpectedInput] = useState('')
   const [expectedGuests, setExpectedGuests] = useState<number | undefined>(undefined)
+  // The guest figure the suggestions on screen were calculated with.
+  const [forecastGuests, setForecastGuests] = useState<number | undefined>(undefined)
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null)
 
   const reload = () => setReloadKey((k) => k + 1)
@@ -108,6 +110,7 @@ export default function Matplan() {
         if (cancelled) return
         setLines(l)
         setForecast(f.items)
+        setForecastGuests(expectedGuests)
         setGuests(g)
         setSummary(s)
         setDonors(d)
@@ -161,6 +164,8 @@ export default function Matplan() {
     seen.add(l.item)
   })
   const toApply = visible.filter(applicable)
+  // Suggestions still being recalculated for a new guest figure must not be applied.
+  const forecastStale = forecastGuests !== expectedGuests
   const editingLine = editing && lines.find((l) => l.id === editing.id)
 
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
@@ -190,9 +195,15 @@ export default function Matplan() {
   }
 
   const applyAll = async () => {
-    if (!confirm(`Sette «ønsket» til forslaget på ${toApply.length} linjer? Tallene som står der nå blir overskrevet.`)) return
+    if (
+      !confirm(
+        `Sette «ønsket» til forslaget på ${toApply.length} linjer som ikke er bekreftet ennå? Tallene som står der nå blir overskrevet.`,
+      )
+    )
+      return
     setError('')
     setInfo('')
+    setBulk({ done: 0, total: toApply.length })
     let done = 0
     try {
       // One at a time: gentle on the server, and a failure stops cleanly.
@@ -231,7 +242,9 @@ export default function Matplan() {
   const step = (delta: 1 | -1) => {
     if (!editing) return
     const next = editing.order[editing.order.indexOf(editing.id) + delta]
-    if (next !== undefined) setEditing({ ...editing, id: next })
+    if (next === undefined) return
+    setError('')
+    setEditing({ ...editing, id: next })
   }
 
   const confirmedCount = (summary?.by_status.confirmed ?? 0) + (summary?.by_status.delivered ?? 0)
@@ -252,7 +265,8 @@ export default function Matplan() {
                 </span>
                 {applicable(l) && (
                   <button
-                    className="text-xs font-medium text-green-800 underline"
+                    className="text-xs font-medium text-green-800 underline disabled:opacity-40"
+                    disabled={forecastStale}
                     onClick={(e) => {
                       e.stopPropagation()
                       patchLine(l.id, { quantity_requested: String(s.suggested_quantity) })
@@ -275,7 +289,14 @@ export default function Matplan() {
     if (mode === 'mottak') {
       return (
         <>
-          <td className="px-3 py-2 text-right tabular-nums">{trim(l.quantity_confirmed ?? l.quantity_requested)}</td>
+          <td className="px-3 py-2 text-right tabular-nums">
+            {l.quantity_confirmed !== null || l.quantity_requested === null ? (
+              trim(l.quantity_confirmed)
+            ) : (
+              // Not confirmed: show what we asked for, clearly marked as that.
+              <span className="text-ink-400">ønsket {trim(l.quantity_requested)}</span>
+            )}
+          </td>
           <td className="px-3 py-2 text-right tabular-nums">{trim(l.quantity_received)}</td>
           <td className="px-3 py-2">
             {l.status === 'delivered' || l.status === 'cancelled' ? (
@@ -324,7 +345,17 @@ export default function Matplan() {
   }
 
   return (
-    <div>
+    <>
+    {bulk && (
+      // Covers the whole window while many lines are updated, so nothing can
+      // be edited underneath and then overwritten.
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-900/30" role="alert">
+        <p className="rounded-xl bg-white px-6 py-4 text-sm font-medium text-ink-900 shadow-lg">
+          Oppdaterer {Math.min(bulk.done + 1, bulk.total)} av {bulk.total} …
+        </p>
+      </div>
+    )}
+    <div inert={!!bulk}>
       <PageHeader
         title="Matplan"
         subtitle="Mat og drikke år for år. Kun admin."
@@ -401,9 +432,9 @@ export default function Matplan() {
                 onBlur={() => setExpectedGuests(Number(expectedInput) > 0 ? Number(expectedInput) : undefined)}
               />
             </div>
-            {toApply.length > 0 && (
-              <Button variant="secondary" disabled={!!bulk} onClick={applyAll}>
-                {bulk ? `Oppdaterer ${bulk.done + 1} av ${bulk.total} …` : `Bruk alle forslag (${toApply.length})`}
+            {!loading && toApply.length > 0 && (
+              <Button variant="secondary" disabled={!!bulk || forecastStale} onClick={applyAll}>
+                Bruk alle forslag ({toApply.length})
               </Button>
             )}
           </>
@@ -489,7 +520,10 @@ export default function Matplan() {
                         <tr
                           key={l.id}
                           className={`cursor-pointer border-b border-cream-200 last:border-0 hover:bg-cream-50 ${l.status === 'cancelled' ? 'opacity-50' : ''}`}
-                          onClick={() => setEditing({ id: l.id, order: visible.map((v) => v.id) })}
+                          onClick={() => {
+                            setError('')
+                            setEditing({ id: l.id, order: visible.map((v) => v.id) })
+                          }}
                         >
                           <td className="px-3 py-2">
                             <button className="text-left font-medium">{l.item_name}</button>
@@ -518,6 +552,7 @@ export default function Matplan() {
           suggestion={suggestionByItem.get(editingLine.item)}
           linesForItem={linesPerItem.get(editingLine.item) ?? 1}
           donors={donors}
+          error={error}
           position={{ index: editing.order.indexOf(editing.id), total: editing.order.length }}
           onStep={step}
           onPatch={patchLine}
@@ -546,5 +581,6 @@ export default function Matplan() {
         </Drawer>
       )}
     </div>
+    </>
   )
 }

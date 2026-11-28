@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Acquisition, Donor, ForecastRow, PlanLine, PlanOutcome, PlanStatus } from '../../types'
-import { Button, Drawer, Input, Label, Select } from '../ui'
+import { Button, Drawer, ErrorText, Input, Label, Select } from '../ui'
 import { NumberField, TextField } from './Fields'
 import {
   ACQ_LABEL,
@@ -47,6 +47,7 @@ export default function LineDrawer({
   suggestion,
   linesForItem,
   donors,
+  error,
   position,
   onStep,
   onPatch,
@@ -58,6 +59,8 @@ export default function LineDrawer({
   suggestion: ForecastRow | undefined
   linesForItem: number
   donors: Donor[]
+  /** A failed save or delete -- shown here, since the page's own message is behind the panel. */
+  error: string
   position: { index: number; total: number }
   onStep: (delta: 1 | -1) => void
   onPatch: (id: number, patch: Record<string, unknown>) => void
@@ -193,6 +196,11 @@ export default function LineDrawer({
           </Button>
         </span>
       </div>
+      {error && (
+        <div className="mb-3 rounded-lg bg-red-600/10 px-3 py-2" role="alert">
+          <ErrorText>{error}</ErrorText>
+        </div>
+      )}
       {line.quantity_note && <p className="mb-3 text-xs text-ink-600">Fra arket: {line.quantity_note}</p>}
 
       {mode === 'plan' && suggestion && (

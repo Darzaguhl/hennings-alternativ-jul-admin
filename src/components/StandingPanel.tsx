@@ -3,14 +3,17 @@ import { api, ApiError } from '../api/client'
 import type { Standing, StandingOverrideLevel } from '../types'
 import { Badge, Button, ErrorText, Input, Label } from './ui'
 import { explainStanding, STANDING_LABEL, STANDING_TONE } from './standing'
+import { useUnsavedChanges } from './unsaved'
 
 // One volunteer's internal standing: what it's based on, and the manual
 // override (which needs a reason). Admin-only, never shown to the volunteer.
 export default function StandingPanel({ row, onChanged }: { row: Standing; onChanged: () => void }) {
-  const [level, setLevel] = useState<StandingOverrideLevel>(row.override ?? (row.computed === 'concern' ? 'good' : 'concern'))
+  const initialLevel: StandingOverrideLevel = row.override ?? (row.computed === 'concern' ? 'good' : 'concern')
+  const [level, setLevel] = useState<StandingOverrideLevel>(initialLevel)
   const [note, setNote] = useState(row.override_note)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  useUnsavedChanges(level !== initialLevel || note.trim() !== row.override_note.trim())
 
   const run = async (action: () => Promise<unknown>, failure: string) => {
     setBusy(true)

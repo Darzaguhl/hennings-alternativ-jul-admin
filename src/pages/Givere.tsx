@@ -3,6 +3,7 @@ import { useEvents } from '../context/EventContext'
 import { api, ApiError } from '../api/client'
 import type { Donor, DonorContact, DonorRelationship } from '../types'
 import { Badge, Button, Card, Drawer, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
+import { useUnsavedChanges } from '../components/unsaved'
 import { hasAdminAccess } from '../utils/roles'
 
 const REL_LABEL: Record<DonorRelationship, string> = {
@@ -29,7 +30,9 @@ function ContactRow({ contact, onChanged }: { contact: DonorContact; onChanged: 
   const [draft, setDraft] = useState(contact)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const dirty = (['name', 'role', 'email', 'phone', 'notes'] as const).some((k) => draft[k] !== contact[k])
+  // Trimmed, because the server trims what it saves.
+  const dirty = (['name', 'role', 'email', 'phone', 'notes'] as const).some((k) => draft[k].trim() !== contact[k].trim())
+  useUnsavedChanges(dirty)
 
   const save = async () => {
     setBusy(true)
@@ -96,6 +99,14 @@ function DonorEditor({ donor, others, onChanged }: { donor: Donor; others: Donor
   const [busy, setBusy] = useState(false)
   const [mergeInto, setMergeInto] = useState('')
   const [newContact, setNewContact] = useState({ name: '', email: '', phone: '' })
+  useUnsavedChanges(
+    (['name', 'owner_name', 'notes'] as const).some((k) => form[k].trim() !== donor[k].trim()) ||
+      form.relationship !== donor.relationship ||
+      form.is_active !== donor.is_active ||
+      form.last_contacted_on !== (donor.last_contacted_on ?? '') ||
+      form.next_contact_on !== (donor.next_contact_on ?? '') ||
+      Object.values(newContact).some((v) => v.trim() !== ''),
+  )
 
   const save = async () => {
     setBusy(true)
@@ -252,6 +263,38 @@ function DonorEditor({ donor, others, onChanged }: { donor: Donor; others: Donor
   )
 }
 
+function NewDonorForm({ onCreated }: { onCreated: (id: number) => void }) {
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  useUnsavedChanges(name.trim() !== '')
+
+  const create = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      onCreated((await api.createDonor({ name: name.trim() })).id)
+    } catch (err) {
+      // Shown here, inside the panel -- not behind it.
+      setError(message(err, 'Kunne ikke opprette giveren.'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <Label>Navn</Label>
+      <Input aria-label="Navn" value={name} onChange={(e) => setName(e.target.value)} placeholder="Firma eller person" />
+      <Button className="mt-3" disabled={busy || !name.trim()} onClick={create}>
+        Opprett
+      </Button>
+      <div className="mt-2">
+        <ErrorText>{error}</ErrorText>
+      </div>
+    </div>
+  )
+}
+
 // The register of everyone food and drink comes from -- sponsors, suppliers
 // and the people who arrange things for us -- with their contacts and a plain
 // record of whether they delivered what they promised. Admin-only.
@@ -267,7 +310,6 @@ export default function Givere() {
   const [onlyAttention, setOnlyAttention] = useState(false)
   const [openId, setOpenId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
-  const [newName, setNewName] = useState('')
 
   const load = () => {
     if (!isAdmin) return
@@ -300,17 +342,10 @@ export default function Givere() {
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
   if (!isAdmin) return <p className="text-ink-600">Kun admin har tilgang til givere.</p>
 
-  const addDonor = async () => {
-    setError('')
-    try {
-      const created = await api.createDonor({ name: newName.trim() })
-      setNewName('')
-      setAdding(false)
-      setOpenId(created.id)
-      load()
-    } catch (err) {
-      setError(message(err, 'Kunne ikke opprette giveren.'))
-    }
+  const donorCreated = (id: number) => {
+    setAdding(false)
+    setOpenId(id)
+    load()
   }
 
   return (
@@ -326,11 +361,7 @@ export default function Givere() {
 
       {adding && (
         <Drawer title="Ny giver" onClose={() => setAdding(false)}>
-          <Label>Navn</Label>
-          <Input aria-label="Navn" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Firma eller person" />
-          <Button className="mt-3" disabled={!newName.trim()} onClick={addDonor}>
-            Opprett
-          </Button>
+          <NewDonorForm onCreated={donorCreated} />
         </Drawer>
       )}
 

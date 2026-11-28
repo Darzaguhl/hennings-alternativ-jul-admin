@@ -3,12 +3,14 @@ import { api } from '../../api/client'
 import type { GuestCount } from '../../types'
 import { Button, ErrorText, Input, Label } from '../ui'
 import { message } from './shared'
+import { useUnsavedChanges } from '../unsaved'
 
 // Guests served per day: the number food quantities really scale with.
 export default function GuestsPanel({ year, guests, onChanged }: { year: number; guests: GuestCount[]; onChanged: () => void }) {
   const [draft, setDraft] = useState({ date: '', guests: '' })
   const [error, setError] = useState('')
   const total = guests.reduce((n, g) => n + g.guests, 0)
+  useUnsavedChanges(draft.date !== '' || draft.guests !== '')
 
   const run = async (action: () => Promise<unknown>, failure: string) => {
     setError('')

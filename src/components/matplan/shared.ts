@@ -46,11 +46,19 @@ export const kr = (n: number) =>
 
 // A suggestion is for an item as a whole. It can only be copied onto a line
 // when that line *is* the whole item (one donor) and counts in the same unit;
-// otherwise one donor would be asked for everyone's amount.
-export const canApply = (line: PlanLine, suggestion: ForecastRow | undefined, linesForItem: number) =>
+// otherwise one donor would be asked for everyone's amount. And only while the
+// amount is still ours to choose: not once the donor has confirmed or
+// delivered, and never for a past year, whose figures later forecasts build on.
+export const canApply = (
+  line: PlanLine,
+  suggestion: ForecastRow | undefined,
+  linesForItem: number,
+  thisYear = new Date().getFullYear(),
+) =>
   !!suggestion &&
   linesForItem === 1 &&
-  line.status !== 'cancelled' &&
+  line.year >= thisYear &&
+  (line.status === 'planned' || line.status === 'asked') &&
   suggestion.action !== 'drop' &&
   suggestion.action !== 'none' &&
   suggestion.unit === line.unit &&

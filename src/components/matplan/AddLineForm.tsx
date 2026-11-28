@@ -3,10 +3,12 @@ import { api } from '../../api/client'
 import type { Donor } from '../../types'
 import { Button, ErrorText, Input, Label, Select } from '../ui'
 import { message } from './shared'
+import { useUnsavedChanges } from '../unsaved'
 
 export default function AddLineForm({ year, donors, onAdded }: { year: number; donors: Donor[]; onAdded: () => void }) {
   const [draft, setDraft] = useState({ name: '', category: '', unit: '', quantity: '', donor: '' })
   const [error, setError] = useState('')
+  useUnsavedChanges(Object.values(draft).some((v) => v.trim() !== ''))
 
   const add = async () => {
     setError('')

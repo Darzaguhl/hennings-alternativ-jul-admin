@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
+import { UnsavedContext } from './unsaved'
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
@@ -105,13 +106,23 @@ export function ErrorText({ children }: { children: ReactNode }) {
 }
 
 // A panel that slides over the right-hand side, for editing one thing without
-// leaving the list. Escape or clicking outside closes it. Fields inside save
-// when they lose focus, so Escape blurs the active field first -- otherwise
-// what was just typed would be dropped.
+// leaving the list. Escape or clicking outside closes it. Two kinds of field
+// can be inside: ones that save when they lose focus (so Escape blurs the
+// active field first), and forms with their own save button, which report
+// unsaved input (see unsaved.ts) so that closing asks before discarding it.
 export function Drawer({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  const closeRef = useRef(onClose)
+  const unsaved = useRef(new Set<string>())
+  const report = useCallback((id: string, dirty: boolean) => {
+    if (dirty) unsaved.current.add(id)
+    else unsaved.current.delete(id)
+  }, [])
+  const requestClose = () => {
+    if (unsaved.current.size > 0 && !confirm('Du har noe som ikke er lagret. Lukke likevel?')) return
+    onClose()
+  }
+  const closeRef = useRef(requestClose)
   useEffect(() => {
-    closeRef.current = onClose
+    closeRef.current = requestClose
   })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -125,15 +136,17 @@ export function Drawer({ title, onClose, children }: { title: string; onClose: (
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
-      <button className="absolute inset-0 cursor-default bg-green-900/30" aria-label="Lukk panelet" tabIndex={-1} onClick={onClose} />
+      <button className="absolute inset-0 cursor-default bg-green-900/30" aria-label="Lukk panelet" tabIndex={-1} onClick={requestClose} />
       <div className="relative flex h-full w-full max-w-lg flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-cream-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-green-900">{title}</h2>
-          <button className="rounded-lg px-2 py-1 text-ink-600 hover:bg-cream-100" aria-label="Lukk" onClick={onClose}>
+          <button className="rounded-lg px-2 py-1 text-ink-600 hover:bg-cream-100" aria-label="Lukk" onClick={requestClose}>
             ✕
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <UnsavedContext.Provider value={report}>{children}</UnsavedContext.Provider>
+        </div>
       </div>
     </div>
   )

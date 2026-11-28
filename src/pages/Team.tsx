@@ -14,6 +14,12 @@ const LEVELS: { value: RatingLevel; label: string; active: string }[] = [
 ]
 const levelLabel = (level: RatingLevel) => LEVELS.find((l) => l.value === level)?.label ?? level
 
+// A note written for a concern isn't a note for praise, and the other way round.
+const crossesConcern = (a: RatingLevel | null, b: RatingLevel | null) => (a === 'bekymring') !== (b === 'bekymring')
+// The note a rating panel starts with when `level` is chosen over `existing`.
+const noteFor = (existing: Rating | undefined, level: RatingLevel | null) =>
+  existing && !crossesConcern(existing.level, level) ? existing.note : ''
+
 const personName = (a: Assignment['user']) => `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || a.email
 const message = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback)
 
@@ -38,6 +44,8 @@ export default function Team() {
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [draftLevel, setDraftLevel] = useState<RatingLevel | null>(null)
   const [draftNote, setDraftNote] = useState('')
+  // What the note field started with, to tell whether anything was typed.
+  const [startNote, setStartNote] = useState('')
   const [draftFlagNote, setDraftFlagNote] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
@@ -94,9 +102,15 @@ export default function Team() {
   if (!selectedEvent) return <p className="text-ink-600">Ingen arrangement valgt.</p>
 
   const openPanel = (key: string, level?: RatingLevel) => {
+    const typed = draftNote !== startNote || draftFlagNote.trim() !== ''
+    if (openKey && openKey !== key && typed && !confirm('Du har et notat som ikke er lagret. Forkaste det?')) return
+    const existing = byKey.myRating.get(key)
+    const next = level ?? existing?.level ?? null
+    const note = noteFor(existing, next)
     setOpenKey(key)
-    setDraftLevel(level ?? byKey.myRating.get(key)?.level ?? null)
-    setDraftNote(byKey.myRating.get(key)?.note ?? '')
+    setDraftLevel(next)
+    setDraftNote(note)
+    setStartNote(note)
     setDraftFlagNote('')
     setError('')
   }
@@ -114,7 +128,8 @@ export default function Team() {
         const created = await api.createRating({ shift: shiftId, user: userId, level, note })
         setRatings((prev) => [created, ...prev])
       }
-      setOpenKey(null)
+      // Only this person's panel: someone else's half-written note stays open.
+      setOpenKey((open) => (open === key ? null : open))
     } catch (err) {
       setError(message(err, 'Kunne ikke lagre vurderingen.'))
     } finally {
@@ -122,13 +137,24 @@ export default function Team() {
     }
   }
 
-  // One click rates. The panel opens instead when there's something to type:
-  // "Bekymring" needs a note, and clicking the current rating means "edit it".
+  // One click rates, but only when there's no text involved: "Bekymring" needs
+  // a reason, a rating that already has a note must not silently carry it over
+  // to a new level, and clicking the current rating means "edit it". With the
+  // person's panel open, a click only chooses; "Lagre" saves.
   const clickLevel = (shiftId: number, userId: number, level: RatingLevel) => {
     const key = `${shiftId}-${userId}`
     const existing = byKey.myRating.get(key)
-    if (existing?.level === level || (level === 'bekymring' && !existing?.note)) return openPanel(key, level)
-    saveRating(shiftId, userId, level, existing?.note ?? '')
+    if (openKey === key) {
+      if (draftNote === startNote) {
+        const note = noteFor(existing, level)
+        setDraftNote(note)
+        setStartNote(note)
+      }
+      setDraftLevel(level)
+      return
+    }
+    if (existing?.level === level || level === 'bekymring' || existing?.note) return openPanel(key, level)
+    saveRating(shiftId, userId, level, '')
   }
 
   const removeRating = async (rating: Rating) => {
@@ -136,7 +162,7 @@ export default function Team() {
     try {
       await api.deleteRating(rating.id)
       setRatings((prev) => prev.filter((r) => r.id !== rating.id))
-      setOpenKey(null)
+      setOpenKey((open) => (open === `${rating.shift}-${rating.user}` ? null : open))
     } catch (err) {
       setError(message(err, 'Kunne ikke fjerne vurderingen.'))
     }
@@ -149,7 +175,8 @@ export default function Team() {
     try {
       const created = await api.createCommendation({ shift: shiftId, user: userId, note })
       setFlags((prev) => [created, ...prev])
-      setDraftFlagNote('')
+      // Clear the field only if it still holds what was just saved.
+      setDraftFlagNote((draft) => (draft.trim() === note ? '' : draft))
     } catch (err) {
       setError(message(err, 'Kunne ikke fremheve.'))
     } finally {
@@ -168,7 +195,10 @@ export default function Team() {
     }
   }
 
-  const concerns = ratings.filter((r) => r.level === 'bekymring')
+  const concerns = isAdmin ? ratings.filter((r) => r.level === 'bekymring') : []
+  // Admins see everyone's flags; a leader the ones they raised -- including on
+  // people no longer on their vakt, who have no row below to remove it from.
+  const listedFlags = isAdmin ? flags : flags.filter((f) => f.flagged_by === user?.id)
 
   return (
     <div>
@@ -184,15 +214,21 @@ export default function Team() {
         <p className="text-ink-600">Laster …</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {isAdmin && (concerns.length > 0 || flags.length > 0) && (
+          {(concerns.length > 0 || listedFlags.length > 0) && (
             <Card className="!p-4">
               <details>
                 <summary className="cursor-pointer text-sm font-semibold text-ink-900">
-                  Oppsummering:{' '}
-                  <span className={concerns.length ? 'text-red-600' : ''}>
-                    {concerns.length} {concerns.length === 1 ? 'bekymring' : 'bekymringer'}
-                  </span>{' '}
-                  · {flags.length} {flags.length === 1 ? 'fremheving' : 'fremhevinger'}
+                  {isAdmin ? (
+                    <>
+                      Oppsummering:{' '}
+                      <span className={concerns.length ? 'text-red-600' : ''}>
+                        {concerns.length} {concerns.length === 1 ? 'bekymring' : 'bekymringer'}
+                      </span>{' '}
+                      · {listedFlags.length} {listedFlags.length === 1 ? 'fremheving' : 'fremhevinger'}
+                    </>
+                  ) : (
+                    `Mine fremhevinger (${listedFlags.length})`
+                  )}
                 </summary>
                 <ul className="mt-3 flex flex-col gap-2 text-sm">
                   {concerns.map((r) => (
@@ -201,7 +237,7 @@ export default function Team() {
                       {r.rated_by_email ? ` · av ${r.rated_by_email}` : ''} — «{r.note}»
                     </li>
                   ))}
-                  {flags.map((f) => (
+                  {listedFlags.map((f) => (
                     <li key={`f${f.id}`}>
                       <span className="font-medium text-green-800">★</span> {f.user_name || f.user_email} · {f.shift_title}
                       {f.flagged_by_email ? ` · av ${f.flagged_by_email}` : ''}
@@ -265,11 +301,13 @@ export default function Team() {
                               {LEVELS.map((l) => (
                                 <button
                                   key={l.value}
-                                  aria-pressed={rating?.level === l.value}
+                                  aria-pressed={(openKey === key ? draftLevel : rating?.level) === l.value}
                                   disabled={busy}
                                   onClick={() => clickLevel(shift.id, a.user.id, l.value)}
                                   className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                                    rating?.level === l.value ? l.active : 'bg-cream-100 text-ink-600 hover:bg-cream-200'
+                                    (openKey === key ? draftLevel : rating?.level) === l.value
+                                      ? l.active
+                                      : 'bg-cream-100 text-ink-600 hover:bg-cream-200'
                                   }`}
                                 >
                                   {l.label}
@@ -327,6 +365,12 @@ export default function Team() {
                                   </Button>
                                 )}
                               </div>
+                              {draftLevel && draftLevel !== rating?.level && (
+                                <p className="text-xs text-ink-600">
+                                  «{levelLabel(draftLevel)}» er ikke lagret ennå.
+                                  {rating?.note && crossesConcern(rating.level, draftLevel) && ` Tidligere notat: «${rating.note}»`}
+                                </p>
+                              )}
                               {!flag && (
                                 <div className="flex gap-2">
                                   <Input
