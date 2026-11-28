@@ -1,6 +1,8 @@
 export interface Skill {
   id: number
   name: string
+  // "Hva som helst": helps with anything; waits in the pool at check-in.
+  is_flexible: boolean
 }
 
 export interface User {
@@ -45,6 +47,13 @@ export interface Event {
   signups_open: boolean
   checkin_mode: CheckinMode
   rating_visibility: RatingVisibility
+  // Signup rules (null = no limit); see the Vakter page.
+  max_oppgaver_per_vakt: number | null
+  max_consecutive_shifts: number | null
+  x1_min_shifts: number
+  x1_min_core_shifts: number
+  x1_core_first: number
+  x1_core_last: number
   created_by: User
   viewer_role: ViewerRole
 }
@@ -93,6 +102,7 @@ export interface OppgaveSlot {
   shift_title: string
   skill: number
   skill_name: string
+  is_flexible: boolean
   capacity: number | null
   signup_count: number
   assigned_count: number
@@ -188,6 +198,8 @@ export interface PoolEntry {
   user: User
   checked_in_at: string
   candidates: ShiftSignup[]
+  // Every oppgave on the vakter where the person chose "hva som helst".
+  open_slots: OppgaveSlot[]
   suggested_oppgave_slot: OppgaveSlot | null
 }
 

@@ -4,6 +4,7 @@ import { api, ApiError } from '../api/client'
 import type { Criticality, OppgaveSlot, Shift, ShiftConflict, Skill, User } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
 import { hasAdminAccess } from '../utils/roles'
+import SignupRules from '../components/SignupRules'
 import { displayToIsoDate, isoToDisplayDate } from '../utils/dates'
 
 interface ShiftFormState {
@@ -108,22 +109,27 @@ export default function Vakter() {
   const [editingSlotCapacity, setEditingSlotCapacity] = useState('')
 
   const isAdmin = hasAdminAccess(selectedEvent?.viewer_role)
+  // Which event the lists belong to: the rules card stays mounted (and open)
+  // while the same event reloads, e.g. after its rules are saved.
+  const [loadedEventId, setLoadedEventId] = useState<number | null>(null)
 
   const load = () => {
     if (!selectedEvent) return
     setLoading(true)
     setError('')
+    const eventId = selectedEvent.id
     Promise.all([
       api.shifts(selectedEvent.id),
       isAdmin ? api.users() : Promise.resolve([]),
-      isAdmin ? api.shiftConflicts(selectedEvent.id) : Promise.resolve([]),
-      isAdmin ? api.skills() : Promise.resolve([]),
+      api.shiftConflicts(selectedEvent.id).catch(() => []),
+      api.skills(),
     ])
       .then(([s, u, c, sk]) => {
         setShifts([...s].sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time)))
         setUsers(u)
         setConflicts(c)
         setSkills(sk)
+        setLoadedEventId(eventId)
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Kunne ikke laste vakter.'))
       .finally(() => setLoading(false))
@@ -297,6 +303,68 @@ export default function Vakter() {
 
       <ErrorText>{error}</ErrorText>
 
+      {loadedEventId === selectedEvent.id && (
+        <SignupRules key={selectedEvent.id} event={selectedEvent} isAdmin={isAdmin} shifts={shifts} skills={skills}>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-600">Vaktkonflikter</h3>
+          <p className="mb-4 text-sm text-ink-600">
+            Vakter som ikke kan kombineres i samme påmelding — f.eks. fordi de ligger for tett på hverandre til at
+            noen bør ta begge. Dette er en vurdering dere gjør selv, ikke noe som regnes ut automatisk fra
+            klokkeslett.
+          </p>
+
+          {conflicts.length > 0 && (
+            <div className="mb-4 flex flex-col gap-2">
+              {conflicts.map((conflict) => (
+                <div key={conflict.id} className="flex items-center justify-between rounded-lg bg-cream-50 px-4 py-2.5">
+                  <span className="text-sm text-ink-900">
+                    «{conflict.shift_a_title}» ↔ «{conflict.shift_b_title}»
+                  </span>
+                  {isAdmin && (
+                    <Button variant="danger" onClick={() => handleDeleteConflict(conflict)} className="!px-3 !py-1.5 !text-xs">
+                      Slett
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {conflicts.length === 0 && <p className="mb-4 text-sm text-ink-600">Ingen vaktkonflikter er lagt til ennå.</p>}
+
+          {isAdmin && (
+          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
+            <div>
+              <Label>Vakt A</Label>
+              <Select value={newConflictA} onChange={(e) => setNewConflictA(e.target.value)}>
+                <option value="">Velg vakt</option>
+                {shifts.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Vakt B</Label>
+              <Select value={newConflictB} onChange={(e) => setNewConflictB(e.target.value)}>
+                <option value="">Velg vakt</option>
+                {shifts.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button
+              onClick={handleAddConflict}
+              disabled={conflictSaving || !newConflictA || !newConflictB || newConflictA === newConflictB}
+            >
+              {conflictSaving ? 'Legger til …' : 'Legg til'}
+            </Button>
+          </div>
+          )}
+        </SignupRules>
+      )}
+
       {loading ? (
         <p className="text-ink-600">Laster …</p>
       ) : (
@@ -348,64 +416,6 @@ export default function Vakter() {
           ))}
           {shifts.length === 0 && <p className="text-ink-600">Ingen vakter er lagt til ennå.</p>}
         </div>
-      )}
-
-      {isAdmin && !loading && (
-        <Card className="mt-6">
-          <h2 className="mb-1 text-lg font-semibold text-green-900">Vaktkonflikter</h2>
-          <p className="mb-4 text-sm text-ink-600">
-            Vakter som ikke kan kombineres i samme påmelding — f.eks. fordi de ligger for tett på hverandre til at
-            noen bør ta begge. Dette er en vurdering dere gjør selv, ikke noe som regnes ut automatisk fra
-            klokkeslett.
-          </p>
-
-          {conflicts.length > 0 && (
-            <div className="mb-4 flex flex-col gap-2">
-              {conflicts.map((conflict) => (
-                <div key={conflict.id} className="flex items-center justify-between rounded-lg bg-cream-50 px-4 py-2.5">
-                  <span className="text-sm text-ink-900">
-                    «{conflict.shift_a_title}» ↔ «{conflict.shift_b_title}»
-                  </span>
-                  <Button variant="danger" onClick={() => handleDeleteConflict(conflict)} className="!px-3 !py-1.5 !text-xs">
-                    Slett
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-          {conflicts.length === 0 && <p className="mb-4 text-sm text-ink-600">Ingen vaktkonflikter er lagt til ennå.</p>}
-
-          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
-            <div>
-              <Label>Vakt A</Label>
-              <Select value={newConflictA} onChange={(e) => setNewConflictA(e.target.value)}>
-                <option value="">Velg vakt</option>
-                {shifts.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Vakt B</Label>
-              <Select value={newConflictB} onChange={(e) => setNewConflictB(e.target.value)}>
-                <option value="">Velg vakt</option>
-                {shifts.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Button
-              onClick={handleAddConflict}
-              disabled={conflictSaving || !newConflictA || !newConflictB || newConflictA === newConflictB}
-            >
-              {conflictSaving ? 'Legger til …' : 'Legg til'}
-            </Button>
-          </div>
-        </Card>
       )}
 
       {editingId !== null && (

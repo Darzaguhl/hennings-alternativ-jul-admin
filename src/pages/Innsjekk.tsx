@@ -21,6 +21,14 @@ const displayName = (user: User) => {
 // placements instead.
 const isFullForAssignment = (slot: OppgaveSlot) => slot.capacity !== null && slot.assigned_count >= slot.capacity
 
+// What this person can be given: what they signed up for, plus -- for those who
+// chose "hva som helst" -- every oppgave on those vakter. Older backends send no
+// open_slots.
+const assignableSlots = (entry: PoolEntry) => {
+  const slots = [...entry.candidates.map((c) => c.oppgave_slot), ...(entry.open_slots ?? [])]
+  return slots.filter((slot, i) => slots.findIndex((other) => other.id === slot.id) === i)
+}
+
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
 
@@ -352,17 +360,11 @@ export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
                           onChange={(e) => setSelection({ ...selection, [entry.user.id]: Number(e.target.value) })}
                         >
                           <option value="">Velg oppgave …</option>
-                          {entry.candidates.map((c) => (
-                            <option
-                              key={c.oppgave_slot.id}
-                              value={c.oppgave_slot.id}
-                              disabled={isFullForAssignment(c.oppgave_slot)}
-                            >
-                              {c.oppgave_slot.shift_title} — {c.oppgave_slot.skill_name}
-                              {c.oppgave_slot.capacity !== null
-                                ? ` (${c.oppgave_slot.assigned_count}/${c.oppgave_slot.capacity})`
-                                : ''}
-                              {isFullForAssignment(c.oppgave_slot) ? ' · full' : ''}
+                          {assignableSlots(entry).map((slot) => (
+                            <option key={slot.id} value={slot.id} disabled={isFullForAssignment(slot)}>
+                              {slot.shift_title} — {slot.skill_name}
+                              {slot.capacity !== null ? ` (${slot.assigned_count}/${slot.capacity})` : ''}
+                              {isFullForAssignment(slot) ? ' · full' : ''}
                             </option>
                           ))}
                         </Select>
