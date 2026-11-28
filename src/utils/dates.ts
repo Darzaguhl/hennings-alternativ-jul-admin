@@ -21,3 +21,12 @@ export const displayToIsoDate = (display: string): string | null => {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
 }
+
+// "Today" where the event happens (YYYY-MM-DD), whatever timezone or language
+// the browser is set to. sv-SE happens to format dates in exactly that shape.
+export const todayInOslo = (now: Date = new Date()) =>
+  new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo' }).format(now)
+
+// "tor. 24. desember", for picking among an event's days.
+export const eventDayLabel = (iso: string) =>
+  new Date(`${iso}T12:00:00`).toLocaleDateString('no-NO', { weekday: 'short', day: 'numeric', month: 'long' })
