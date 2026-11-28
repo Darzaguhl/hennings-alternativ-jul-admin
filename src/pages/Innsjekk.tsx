@@ -6,13 +6,13 @@ import { api, ApiError } from '../api/client'
 import type { OppgaveSlot, PoolEntry, User } from '../types'
 import { Badge, Button, Card, ErrorText, Input, Label, PageHeader, Select } from '../components/ui'
 import { hasAdminAccess } from '../utils/roles'
+import { eventDayLabel } from '../utils/dates'
+import { useToday } from '../utils/useToday'
 
 const displayName = (user: User) => {
   const name = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
   return name || user.email
 }
-
-const todayIso = () => new Date().toISOString().slice(0, 10)
 
 // OppgaveSlot.is_full reflects signup interest reaching capacity, which is
 // expected to happen routinely (that's the whole point of the pool -- more
@@ -44,8 +44,23 @@ export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
   const [search, setSearch] = useState('')
   const [checkingInId, setCheckingInId] = useState<number | null>(null)
 
-  // Pool state
-  const [date, setDate] = useState(todayIso())
+  // Pool state. Volunteers can only sign up for the event's vakt days, so
+  // those are the only days offered. The pool shows today when today is one of
+  // them, otherwise the first -- and a day picked by hand holds until the
+  // calendar day changes or another event is chosen.
+  const today = useToday()
+  const [loadedDays, setLoadedDays] = useState<{ event: number; days: string[] } | null>(null)
+  const [picked, setPicked] = useState<{ event: number; date: string; on: string } | null>(null)
+  const days = loadedDays && loadedDays.event === selectedEvent?.id ? loadedDays.days : null
+  const date =
+    picked && picked.event === selectedEvent?.id && picked.on === today && days?.includes(picked.date)
+      ? picked.date
+      : days?.includes(today)
+        ? today
+        : (days?.[0] ?? '')
+  if (picked && selectedEvent && picked.event !== selectedEvent.id) setPicked(null)
+  // Only the newest pool request may fill the list.
+  const latestPool = useRef(0)
   const [entries, setEntries] = useState<PoolEntry[]>([])
   const [selection, setSelection] = useState<Record<number, number>>({})
   const [poolLoading, setPoolLoading] = useState(true)
@@ -64,13 +79,30 @@ export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
     }
   }, [selectedEvent, view])
 
+  useEffect(() => {
+    if (!selectedEvent || view !== 'pool') return
+    const event = selectedEvent.id
+    let cancelled = false
+    api
+      .shifts(event)
+      .then((shifts) => {
+        if (!cancelled) setLoadedDays({ event, days: [...new Set(shifts.map((s) => s.date))].sort() })
+      })
+      .catch((err) => !cancelled && setPoolError(err instanceof ApiError ? err.message : 'Kunne ikke laste vaktdagene.'))
+    return () => {
+      cancelled = true
+    }
+  }, [selectedEvent, view])
+
   const loadPool = () => {
-    if (!selectedEvent) return
+    if (!selectedEvent || !date) return
+    const request = ++latestPool.current
     setPoolLoading(true)
     setPoolError('')
     api
       .pool(selectedEvent.id, date)
       .then((data) => {
+        if (request !== latestPool.current) return
         setEntries(data)
         const defaults: Record<number, number> = {}
         data.forEach((entry) => {
@@ -78,8 +110,12 @@ export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
         })
         setSelection(defaults)
       })
-      .catch((err) => setPoolError(err instanceof ApiError ? err.message : 'Kunne ikke laste pool.'))
-      .finally(() => setPoolLoading(false))
+      .catch((err) => {
+        if (request !== latestPool.current) return
+        setEntries([])
+        setPoolError(err instanceof ApiError ? err.message : 'Kunne ikke laste pool.')
+      })
+      .finally(() => request === latestPool.current && setPoolLoading(false))
   }
 
   useEffect(loadPool, [selectedEvent, date])
@@ -109,10 +145,6 @@ export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
       const result = await api.checkinByUserId(selectedEvent.id, user.id)
       setInnsjekkMessage(`${result.user.email}: ${result.message}`)
       setSearch('')
-      // The person who just checked in may now be waiting in today's pool --
-      // refresh it so the pool view shows them immediately instead
-      // of whatever was loaded before this check-in happened.
-      loadPool()
     } catch (err) {
       setInnsjekkError(err instanceof ApiError ? err.message : 'Kunne ikke sjekke inn.')
     } finally {
@@ -130,7 +162,6 @@ export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
       const result = await api.checkinByCode(selectedEvent.id, userCode.trim())
       setInnsjekkMessage(`${result.user.email}: ${result.message}`)
       setUserCode('')
-      loadPool()
     } catch (err) {
       setInnsjekkError(err instanceof ApiError ? err.message : 'Kunne ikke sjekke inn.')
     } finally {
@@ -252,19 +283,30 @@ export default function Innsjekk({ view }: { view: 'innsjekk' | 'pool' }) {
 
       {view === 'pool' && canSeePool && (
         <>
-          <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <p className="text-sm text-ink-600">
               Innsjekkede frivillige som venter på en oppgave, eldste ankomst først
             </p>
-            <div className="w-40 flex-shrink-0">
+            <div className="w-56 max-w-full">
               <Label>Dato</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Select aria-label="Dato" value={date} disabled={!days?.length} onChange={(e) => setPicked({ event: selectedEvent.id, date: e.target.value, on: today })}>
+                {days?.map((d) => (
+                  <option key={d} value={d}>
+                    {eventDayLabel(d)}
+                    {d === today ? ' (i dag)' : ''}
+                  </option>
+                ))}
+              </Select>
             </div>
           </div>
 
           <ErrorText>{poolError}</ErrorText>
 
-          {poolLoading ? (
+          {days?.length === 0 ? (
+            <Card>
+              <p className="text-ink-600">Arrangementet har ingen vakter ennå, så det er ingen dager å velge.</p>
+            </Card>
+          ) : poolLoading && !poolError ? (
             <p className="text-ink-600">Laster …</p>
           ) : entries.length === 0 ? (
             <Card>
